@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/mfridman/cli"
+	"github.com/pressly/cli"
 )
 
 func main() {

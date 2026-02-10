@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/mfridman/cli/pkg/suggest"
+	"github.com/pressly/cli/pkg/suggest"
 )
 
 // Command represents a CLI command or subcommand within the application's command hierarchy.

@@ -7,7 +7,7 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/mfridman/cli/pkg/textutil"
+	"github.com/pressly/cli/pkg/textutil"
 )
 
 // DefaultUsage returns the default usage string for the command hierarchy. It is used when the

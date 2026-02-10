@@ -1,4 +1,4 @@
-module github.com/mfridman/cli
+module github.com/pressly/cli
 
 go 1.21.0
 

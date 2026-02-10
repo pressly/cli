@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mfridman/cli"
+	"github.com/pressly/cli"
 )
 
 // todo

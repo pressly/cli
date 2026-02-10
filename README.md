@@ -1,7 +1,7 @@
 # cli
 
-[![GoDoc](https://godoc.org/github.com/mfridman/cli?status.svg)](https://pkg.go.dev/github.com/mfridman/cli#pkg-index)
-[![CI](https://github.com/mfridman/cli/actions/workflows/ci.yaml/badge.svg)](https://github.com/mfridman/cli/actions/workflows/ci.yaml)
+[![GoDoc](https://godoc.org/github.com/pressly/cli?status.svg)](https://pkg.go.dev/github.com/pressly/cli#pkg-index)
+[![CI](https://github.com/pressly/cli/actions/workflows/ci.yaml/badge.svg)](https://github.com/pressly/cli/actions/workflows/ci.yaml)
 
 A Go package for building CLI applications. Extends the standard library's `flag` package to support
 [flags anywhere](https://mfridman.com/blog/2024/allowing-flags-anywhere-on-the-cli/) in command
@@ -35,7 +35,7 @@ core functionality.
 ## Installation
 
 ```bash
-go get github.com/mfridman/cli@latest
+go get github.com/pressly/cli@latest
 ```
 
 Required go version: 1.21 or higher

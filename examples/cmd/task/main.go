@@ -50,15 +50,7 @@ func main() {
 		},
 	}
 
-	if err := cli.Parse(root, os.Args[1:]); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			fmt.Fprintf(os.Stdout, "%s\n", cli.DefaultUsage(root))
-			return
-		}
-		fmt.Fprintf(os.Stderr, "error: %v\n", err)
-		os.Exit(1)
-	}
-	if err := cli.Run(context.Background(), root, nil); err != nil {
+	if err := cli.ParseAndRun(context.Background(), root, os.Args[1:], nil); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}

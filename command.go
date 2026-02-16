@@ -9,6 +9,13 @@ import (
 	"github.com/pressly/cli/pkg/suggest"
 )
 
+// ErrHelp is returned by [Parse] when the -help or -h flag is invoked. It is identical to
+// [flag.ErrHelp] but re-exported here so callers using [Parse] and [Run] separately do not need to
+// import the flag package solely for error checking.
+//
+// Note: [ParseAndRun] handles this automatically and never surfaces ErrHelp to the caller.
+var ErrHelp = flag.ErrHelp
+
 // Command represents a CLI command or subcommand within the application's command hierarchy.
 type Command struct {
 	// Name is always a single word representing the command's name. It is used to identify the

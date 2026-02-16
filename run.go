@@ -127,10 +127,14 @@ func location(skip int) string {
 	mod := getGoModuleName()
 	if mod == "" {
 		// When running as a test binary, debug.ReadBuildInfo().Main.Path is empty. Derive the
-		// package path from the function name (e.g., "github.com/pressly/cli.Run" ->
-		// "github.com/pressly/cli") and use that to trim the file path.
-		if idx := strings.LastIndex(frame.Function, "."); idx != -1 {
-			mod = frame.Function[:idx]
+		// package path from the function name. The function name format is
+		// "import/path.FuncName" (e.g., "github.com/pressly/cli.Run"). For closures it may be
+		// "github.com/pressly/cli.TestRun.func1.1". The package path is everything up to the
+		// first "." after the last "/".
+		if slashIdx := strings.LastIndex(frame.Function, "/"); slashIdx != -1 {
+			if dotIdx := strings.Index(frame.Function[slashIdx:], "."); dotIdx != -1 {
+				mod = frame.Function[:slashIdx+dotIdx]
+			}
 		}
 	}
 	if mod != "" {

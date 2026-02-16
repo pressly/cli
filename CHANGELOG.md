@@ -1,0 +1,68 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and this project
+adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- `Local` field on `FlagMetadata` for granular flag inheritance control
+- Short flag aliases via `FlagMetadata.Short`
+- `ParseAndRun` convenience function
+
+### Changed
+
+- Enhance usage output with type hints, required markers, and zero-default suppression
+- Inline `xflag` package and improve `ParseToEnd`
+- Decompose `Parse` into focused helpers and fix edge cases
+- Update Go module path and references
+
+### Fixed
+
+- Default nil context to `context.Background` in `Run`
+
+## [v0.3.0] - 2025-11-22
+
+### Added
+
+- Top-level `graceful` package for signal handling
+- Comprehensive edge case tests for CLI library
+
+### Changed
+
+- Use sync.Once to get module name from runtime
+- Improve panic location reporting
+
+## [v0.2.1] - 2025-02-01
+
+### Changed
+
+- Update name regex to allow underscore and dash in command names
+
+## [v0.2.0] - 2025-01-07
+
+### Removed
+
+- Remove `ParseAndRun` in favor of separate parse and run steps
+
+## [v0.1.0] - 2025-01-06
+
+### Added
+
+- Initial release of the CLI library
+- Command tree with subcommands and flag parsing
+- `Path` method on `*Command` for full command path
+- Flag metadata with required flag support
+- Command name typo suggestions (Levenshtein distance)
+- Boolean flag handling
+- `textutil` and `suggest` helper packages
+- GitHub Actions CI
+
+[Unreleased]: https://github.com/pressly/cli/compare/v0.3.0...HEAD
+[v0.3.0]: https://github.com/pressly/cli/compare/v0.2.1...v0.3.0
+[v0.2.1]: https://github.com/pressly/cli/compare/v0.2.0...v0.2.1
+[v0.2.0]: https://github.com/pressly/cli/compare/v0.1.0...v0.2.0
+[v0.1.0]: https://github.com/pressly/cli/releases/tag/v0.1.0

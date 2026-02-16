@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/mfridman/xflag"
+	"github.com/pressly/cli/xflag"
 )
 
 // Parse traverses the command hierarchy and parses arguments. It returns an error if parsing fails

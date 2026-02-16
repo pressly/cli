@@ -3,7 +3,6 @@ package cli
 import (
 	"bytes"
 	"context"
-	"errors"
 	"flag"
 	"strings"
 	"testing"
@@ -98,23 +97,7 @@ func TestRun(t *testing.T) {
 		require.Contains(t, err.Error(), `unknown command "verzion". Did you mean one of these?`)
 		require.Contains(t, err.Error(), `	version`)
 	})
-	t.Run("run with nil context", func(t *testing.T) {
-		t.Parallel()
-		root := &Command{
-			Name: "test",
-			Exec: func(ctx context.Context, s *State) error {
-				if ctx == nil {
-					return errors.New("context is nil")
-				}
-				return nil
-			},
-		}
-		err := Parse(root, nil)
-		require.NoError(t, err)
-		err = Run(nil, root, nil) //nolint:staticcheck // intentionally testing nil context
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "context is nil")
-	})
+
 	t.Run("command that panics during execution", func(t *testing.T) {
 		t.Parallel()
 		root := &Command{

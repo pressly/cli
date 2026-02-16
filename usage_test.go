@@ -265,21 +265,28 @@ func TestUsageGeneration(t *testing.T) {
 		require.Contains(t, output, "float flag")
 	})
 
-	t.Run("usage before parsing", func(t *testing.T) {
+	t.Run("usage before parsing shows flags", func(t *testing.T) {
 		t.Parallel()
 
 		cmd := &Command{
 			Name: "unparsed",
 			Flags: FlagsFunc(func(fset *flag.FlagSet) {
-				fset.Bool("flag", false, "test flag")
+				fset.Bool("debug", false, "enable debug mode")
+				fset.String("config", "", "config file path")
 			}),
+			FlagsMetadata: []FlagMetadata{
+				{Name: "config", Required: true},
+			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
 		}
 
-		// Usage should work even before parsing
+		// Usage should work even before parsing and show flags
 		output := DefaultUsage(cmd)
 		require.NotEmpty(t, output)
-		// But it may be limited without state
+		require.Contains(t, output, "Flags:")
+		require.Contains(t, output, "-debug")
+		require.Contains(t, output, "-config string")
+		require.Contains(t, output, "(required)")
 	})
 
 	t.Run("usage with custom usage string", func(t *testing.T) {
@@ -330,10 +337,9 @@ func TestUsageGeneration(t *testing.T) {
 func TestWriteFlagSection(t *testing.T) {
 	t.Parallel()
 
-	t.Run("writeFlagSection helper function", func(t *testing.T) {
+	t.Run("non-zero defaults shown and type hints", func(t *testing.T) {
 		t.Parallel()
 
-		// Test the internal behavior through DefaultUsage since writeFlagSection is not exported
 		cmd := &Command{
 			Name: "test",
 			Flags: FlagsFunc(func(fset *flag.FlagSet) {
@@ -350,15 +356,71 @@ func TestWriteFlagSection(t *testing.T) {
 		output := DefaultUsage(cmd)
 		require.Contains(t, output, "Flags:")
 		require.Contains(t, output, "-verbose")
-		require.Contains(t, output, "-config")
-		require.Contains(t, output, "-workers")
+		require.Contains(t, output, "-config string")
+		require.Contains(t, output, "-workers int")
 		require.Contains(t, output, "enable verbose output")
 		require.Contains(t, output, "configuration file path")
 		require.Contains(t, output, "number of worker threads")
 
-		// Test default values are shown
+		// Non-zero defaults are shown
 		require.Contains(t, output, "(default: /etc/config)")
 		require.Contains(t, output, "(default: 4)")
+	})
+
+	t.Run("zero-value defaults suppressed", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &Command{
+			Name: "test",
+			Flags: FlagsFunc(func(fset *flag.FlagSet) {
+				fset.Bool("verbose", false, "enable verbose output")
+				fset.String("output", "", "output file")
+				fset.Int("count", 0, "number of items")
+				fset.Float64("rate", 0.0, "rate limit")
+			}),
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+
+		err := Parse(cmd, []string{})
+		require.NoError(t, err)
+
+		output := DefaultUsage(cmd)
+		// Zero-value defaults should not appear
+		require.NotContains(t, output, "(default: false)")
+		require.NotContains(t, output, "(default: 0)")
+		require.NotContains(t, output, "(default: )")
+		// But non-bool flags should still have type hints
+		require.Contains(t, output, "-output string")
+		require.Contains(t, output, "-count int")
+		require.Contains(t, output, "-rate float64")
+		// Bool flags should NOT have a type hint
+		require.NotContains(t, output, "-verbose bool")
+	})
+
+	t.Run("required flags marked", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &Command{
+			Name: "test",
+			Flags: FlagsFunc(func(fset *flag.FlagSet) {
+				fset.String("file", "", "path to file")
+				fset.String("output", "stdout", "output destination")
+			}),
+			FlagsMetadata: []FlagMetadata{
+				{Name: "file", Required: true},
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+
+		err := Parse(cmd, []string{"-file", "test.txt"})
+		require.NoError(t, err)
+
+		output := DefaultUsage(cmd)
+		require.Contains(t, output, "(required)")
+		// Required flag should not also show a default
+		require.NotContains(t, output, "(default: )")
+		// Non-required flag with non-zero default should show default
+		require.Contains(t, output, "(default: stdout)")
 	})
 
 	t.Run("no flags section when no flags", func(t *testing.T) {

@@ -28,6 +28,9 @@ type RunOptions struct {
 // The options parameter may be nil, in which case default values are used. See [RunOptions] for
 // more details.
 func Run(ctx context.Context, root *Command, options *RunOptions) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
 	if root == nil {
 		return errors.New("root command is nil")
 	}

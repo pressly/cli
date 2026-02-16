@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -47,6 +48,31 @@ func Run(ctx context.Context, root *Command, options *RunOptions) error {
 	updateState(root.state, options)
 
 	return run(ctx, cmd, root.state)
+}
+
+// ParseAndRun is a convenience function that combines [Parse] and [Run] into a single call. It
+// parses the command hierarchy, handles help flags automatically (printing usage to stdout and
+// returning nil), and then executes the resolved command.
+//
+// This is the recommended entry point for most CLI applications:
+//
+//	if err := cli.ParseAndRun(ctx, root, os.Args[1:], nil); err != nil {
+//	    fmt.Fprintf(os.Stderr, "error: %v\n", err)
+//	    os.Exit(1)
+//	}
+//
+// For applications that need to perform work between parsing and execution (e.g., initializing
+// resources based on parsed flags), use [Parse] and [Run] separately.
+func ParseAndRun(ctx context.Context, root *Command, args []string, options *RunOptions) error {
+	if err := Parse(root, args); err != nil {
+		if errors.Is(err, flag.ErrHelp) {
+			options = checkAndSetRunOptions(options)
+			fmt.Fprintln(options.Stdout, DefaultUsage(root))
+			return nil
+		}
+		return err
+	}
+	return Run(ctx, root, options)
 }
 
 func run(ctx context.Context, cmd *Command, state *State) (retErr error) {
@@ -121,12 +147,12 @@ func location(skip int) string {
 
 	frame, _ := runtime.CallersFrames(pcs[:n]).Next()
 
-	// Trim the module name from function and file paths for cleaner output.
-	// Function names use the module path directly (e.g., "github.com/pressly/cli.Run").
+	// Trim the module name from function and file paths for cleaner output. Function names use the
+	// module path directly (e.g., "github.com/pressly/cli.Run").
 	fn := strings.TrimPrefix(frame.Function, getGoModuleName()+"/")
-	// File paths from runtime are absolute (e.g., "/Users/.../cli/run.go"). We want a relative
-	// path for cleaner output. Try to find the module's import path in the filesystem path
-	// (works with GOPATH-style layouts), otherwise fall back to just the base filename.
+	// File paths from runtime are absolute (e.g., "/Users/.../cli/run.go"). We want a relative path
+	// for cleaner output. Try to find the module's import path in the filesystem path (works with
+	// GOPATH-style layouts), otherwise fall back to just the base filename.
 	file := frame.File
 	mod := getGoModuleName()
 	if mod != "" {

@@ -110,12 +110,21 @@ func resolveCommandPath(root *Command, argsToParse []string) (*Command, error) {
 			name := strings.TrimLeft(arg, "-")
 			skipValue := false
 			for _, cmd := range root.state.path {
+				localFlags := localFlagSet(cmd.FlagsMetadata)
+				// Skip local flags on ancestor commands (any command already in the
+				// path is an ancestor of the not-yet-resolved terminal command).
+				if localFlags[name] {
+					continue
+				}
 				// First try direct lookup.
 				f := cmd.Flags.Lookup(name)
 				// If not found, check if it's a short alias.
 				if f == nil {
 					for _, fm := range cmd.FlagsMetadata {
 						if fm.Short == name {
+							if localFlags[fm.Name] {
+								break
+							}
 							f = cmd.Flags.Lookup(fm.Name)
 							break
 						}
@@ -161,13 +170,20 @@ func resolveCommandPath(root *Command, argsToParse []string) (*Command, error) {
 func combineFlags(path []*Command) *flag.FlagSet {
 	combined := flag.NewFlagSet(path[0].Name, flag.ContinueOnError)
 	combined.SetOutput(io.Discard)
-	for i := len(path) - 1; i >= 0; i-- {
+	terminalIdx := len(path) - 1
+	for i := terminalIdx; i >= 0; i-- {
 		cmd := path[i]
 		if cmd.Flags == nil {
 			continue
 		}
+		localFlags := localFlagSet(cmd.FlagsMetadata)
 		shortMap := shortFlagMap(cmd.FlagsMetadata)
+		isAncestor := i < terminalIdx
 		cmd.Flags.VisitAll(func(f *flag.Flag) {
+			// Skip local flags from ancestor commands — they are not inherited.
+			if isAncestor && localFlags[f.Name] {
+				return
+			}
 			if combined.Lookup(f.Name) == nil {
 				combined.Var(f.Value, f.Name, f.Usage)
 			}
@@ -180,6 +196,17 @@ func combineFlags(path []*Command) *flag.FlagSet {
 		})
 	}
 	return combined
+}
+
+// localFlagSet builds a set of flag names that are marked as local in FlagsMetadata.
+func localFlagSet(metadata []FlagMetadata) map[string]bool {
+	m := make(map[string]bool, len(metadata))
+	for _, fm := range metadata {
+		if fm.Local {
+			m[fm.Name] = true
+		}
+	}
+	return m
 }
 
 // shortFlagMap builds a map from long flag name to short alias from FlagsMetadata.
@@ -203,10 +230,15 @@ func checkRequiredFlags(path []*Command, combined *flag.FlagSet) error {
 		setFlags[f.Name] = struct{}{}
 	})
 
+	terminalIdx := len(path) - 1
 	var missingFlags []string
-	for _, cmd := range path {
+	for i, cmd := range path {
 		for _, flagMetadata := range cmd.FlagsMetadata {
 			if !flagMetadata.Required {
+				continue
+			}
+			// Skip required-flag checks for local flags on ancestor commands.
+			if flagMetadata.Local && i < terminalIdx {
 				continue
 			}
 			if combined.Lookup(flagMetadata.Name) == nil {

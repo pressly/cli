@@ -90,19 +90,26 @@ func DefaultUsage(root *Command) string {
 
 	var flags []flagInfo
 	if root.state != nil && len(root.state.path) > 0 {
+		terminalIdx := len(root.state.path) - 1
 		for i, cmd := range root.state.path {
 			if cmd.Flags == nil {
 				continue
 			}
-			isGlobal := i < len(root.state.path)-1
+			isInherited := i < terminalIdx
 			metaMap := flagMetadataMap(cmd.FlagsMetadata)
 			cmd.Flags.VisitAll(func(f *flag.Flag) {
+				// Skip local flags from ancestor commands — they don't appear in child help.
+				if isInherited {
+					if m, ok := metaMap[f.Name]; ok && m.Local {
+						return
+					}
+				}
 				fi := flagInfo{
-					name:     "--" + f.Name,
-					usage:    f.Usage,
-					defval:   f.DefValue,
-					typeName: flagTypeName(f),
-					global:   isGlobal,
+					name:      "--" + f.Name,
+					usage:     f.Usage,
+					defval:    f.DefValue,
+					typeName:  flagTypeName(f),
+					inherited: isInherited,
 				}
 				if m, ok := metaMap[f.Name]; ok {
 					fi.required = m.Required
@@ -150,10 +157,10 @@ func DefaultUsage(root *Command) string {
 		}
 
 		hasLocal := false
-		hasGlobal := false
+		hasInherited := false
 		for _, f := range flags {
-			if f.global {
-				hasGlobal = true
+			if f.inherited {
+				hasInherited = true
 			} else {
 				hasLocal = true
 			}
@@ -165,8 +172,8 @@ func DefaultUsage(root *Command) string {
 			b.WriteString("\n")
 		}
 
-		if hasGlobal {
-			b.WriteString("Global Flags:\n")
+		if hasInherited {
+			b.WriteString("Inherited Flags:\n")
 			writeFlagSection(&b, flags, maxFlagLen, true, hasAnyShort)
 			b.WriteString("\n")
 		}
@@ -184,12 +191,12 @@ func DefaultUsage(root *Command) string {
 }
 
 // writeFlagSection handles the formatting of flag descriptions
-func writeFlagSection(b *strings.Builder, flags []flagInfo, maxLen int, global, hasAnyShort bool) {
+func writeFlagSection(b *strings.Builder, flags []flagInfo, maxLen int, inherited, hasAnyShort bool) {
 	nameWidth := maxLen + 4
 	wrapWidth := defaultTerminalWidth - nameWidth
 
 	for _, f := range flags {
-		if f.global != global {
+		if f.inherited != inherited {
 			continue
 		}
 
@@ -222,13 +229,13 @@ func flagMetadataMap(metadata []FlagMetadata) map[string]FlagMetadata {
 }
 
 type flagInfo struct {
-	name     string
-	short    string
-	usage    string
-	defval   string
-	typeName string
-	global   bool
-	required bool
+	name      string
+	short     string
+	usage     string
+	defval    string
+	typeName  string
+	inherited bool
+	required  bool
 }
 
 // displayName returns the flag name with optional short alias and type hint. When hasAnyShort is

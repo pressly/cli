@@ -836,6 +836,164 @@ func TestShortFlags(t *testing.T) {
 	})
 }
 
+func TestLocalFlags(t *testing.T) {
+	t.Parallel()
+
+	t.Run("local flag on parent not available to child", func(t *testing.T) {
+		t.Parallel()
+		child := &Command{
+			Name: "child",
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+		root := &Command{
+			Name: "root",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.Bool("version", false, "show version")
+				f.Bool("verbose", false, "enable verbose output")
+			}),
+			FlagsMetadata: []FlagMetadata{
+				{Name: "version", Local: true},
+			},
+			SubCommands: []*Command{child},
+			Exec:        func(ctx context.Context, s *State) error { return nil },
+		}
+		// --version on child should fail because it's local to root
+		err := Parse(root, []string{"child", "--version"})
+		require.Error(t, err)
+		require.ErrorContains(t, err, "flag provided but not defined")
+
+		// --verbose on child should still work (not local)
+		root2 := &Command{
+			Name: "root",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.Bool("version", false, "show version")
+				f.Bool("verbose", false, "enable verbose output")
+			}),
+			FlagsMetadata: []FlagMetadata{
+				{Name: "version", Local: true},
+			},
+			SubCommands: []*Command{{
+				Name: "child",
+				Exec: func(ctx context.Context, s *State) error { return nil },
+			}},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+		err = Parse(root2, []string{"child", "--verbose"})
+		require.NoError(t, err)
+		assert.True(t, GetFlag[bool](root2.state, "verbose"))
+	})
+
+	t.Run("local flag works on defining command", func(t *testing.T) {
+		t.Parallel()
+		root := &Command{
+			Name: "root",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.Bool("version", false, "show version")
+			}),
+			FlagsMetadata: []FlagMetadata{
+				{Name: "version", Local: true},
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+		err := Parse(root, []string{"--version"})
+		require.NoError(t, err)
+		assert.True(t, GetFlag[bool](root.state, "version"))
+	})
+
+	t.Run("local required flag only enforced on defining command", func(t *testing.T) {
+		t.Parallel()
+		child := &Command{
+			Name: "child",
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+		root := &Command{
+			Name: "root",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.String("token", "", "auth token")
+			}),
+			FlagsMetadata: []FlagMetadata{
+				{Name: "token", Required: true, Local: true},
+			},
+			SubCommands: []*Command{child},
+			Exec:        func(ctx context.Context, s *State) error { return nil },
+		}
+		// Child command should not require parent's local required flag
+		err := Parse(root, []string{"child"})
+		require.NoError(t, err)
+
+		// But root command itself should still require it
+		root2 := &Command{
+			Name: "root",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.String("token", "", "auth token")
+			}),
+			FlagsMetadata: []FlagMetadata{
+				{Name: "token", Required: true, Local: true},
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+		err = Parse(root2, []string{})
+		require.Error(t, err)
+		require.ErrorContains(t, err, "required flag")
+	})
+
+	t.Run("usage excludes local parent flags from inherited flags", func(t *testing.T) {
+		t.Parallel()
+		child := &Command{
+			Name: "child",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.Bool("dry-run", false, "dry run mode")
+			}),
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+		root := &Command{
+			Name: "root",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.Bool("version", false, "show version")
+				f.Bool("verbose", false, "enable verbose output")
+			}),
+			FlagsMetadata: []FlagMetadata{
+				{Name: "version", Local: true},
+			},
+			SubCommands: []*Command{child},
+			Exec:        func(ctx context.Context, s *State) error { return nil },
+		}
+		err := Parse(root, []string{"child", "--help"})
+		require.ErrorIs(t, err, flag.ErrHelp)
+
+		usage := DefaultUsage(root)
+		// --verbose should appear in inherited flags (not local)
+		assert.Contains(t, usage, "--verbose")
+		// --version should NOT appear (local to root, not inherited)
+		assert.NotContains(t, usage, "--version")
+		// --dry-run should appear in local flags
+		assert.Contains(t, usage, "--dry-run")
+	})
+
+	t.Run("local flag with short alias not inherited", func(t *testing.T) {
+		t.Parallel()
+		child := &Command{
+			Name: "child",
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+		root := &Command{
+			Name: "root",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.Bool("version", false, "show version")
+			}),
+			FlagsMetadata: []FlagMetadata{
+				{Name: "version", Short: "V", Local: true},
+			},
+			SubCommands: []*Command{child},
+			Exec:        func(ctx context.Context, s *State) error { return nil },
+		}
+		// Short alias -V should also not work on child
+		err := Parse(root, []string{"child", "-V"})
+		require.Error(t, err)
+		require.ErrorContains(t, err, "flag provided but not defined")
+	})
+}
+
 func getCommand(t *testing.T, c *Command) *Command {
 	require.NotNil(t, c)
 	require.NotNil(t, c.state)

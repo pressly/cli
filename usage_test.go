@@ -305,7 +305,7 @@ func TestUsageGeneration(t *testing.T) {
 		require.Contains(t, output, "custom [options] <file>")
 	})
 
-	t.Run("usage with global and local flags", func(t *testing.T) {
+	t.Run("usage with inherited and local flags", func(t *testing.T) {
 		t.Parallel()
 
 		child := &Command{
@@ -487,6 +487,6 @@ func TestWriteFlagSection(t *testing.T) {
 
 		output := DefaultUsage(cmd)
 		require.NotContains(t, output, "Flags:")
-		require.NotContains(t, output, "Global Flags:")
+		require.NotContains(t, output, "Inherited Flags:")
 	})
 }

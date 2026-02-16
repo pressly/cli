@@ -71,10 +71,15 @@ func (c *Command) terminal() *Command {
 	return c.state.path[len(c.state.path)-1]
 }
 
-// FlagMetadata holds additional metadata for a flag, such as whether it is required.
+// FlagMetadata holds additional metadata for a flag, such as whether it is required or has a short
+// alias.
 type FlagMetadata struct {
 	// Name is the flag's name. Must match the flag name in the flag set.
 	Name string
+
+	// Short is an optional single-character alias for the flag. When set, users can use either
+	// -v or -verbose (if Short is "v" and Name is "verbose"). Must be a single ASCII letter.
+	Short string
 
 	// Required indicates whether the flag is required.
 	Required bool

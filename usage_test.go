@@ -423,6 +423,57 @@ func TestWriteFlagSection(t *testing.T) {
 		require.Contains(t, output, "(default: stdout)")
 	})
 
+	t.Run("short flags displayed", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &Command{
+			Name: "test",
+			Flags: FlagsFunc(func(fset *flag.FlagSet) {
+				fset.Bool("verbose", false, "enable verbose output")
+				fset.String("output", "", "output file")
+				fset.String("config", "", "config file path")
+			}),
+			FlagsMetadata: []FlagMetadata{
+				{Name: "verbose", Short: "v"},
+				{Name: "output", Short: "o"},
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+
+		err := Parse(cmd, []string{})
+		require.NoError(t, err)
+
+		output := DefaultUsage(cmd)
+		// Flags with short aliases show both forms
+		require.Contains(t, output, "-v, --verbose")
+		require.Contains(t, output, "-o, --output string")
+		// Flags without short aliases are padded to align with double-dash
+		require.Contains(t, output, "     --config string")
+	})
+
+	t.Run("no short flags means no padding", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &Command{
+			Name: "test",
+			Flags: FlagsFunc(func(fset *flag.FlagSet) {
+				fset.Bool("verbose", false, "enable verbose output")
+				fset.String("config", "", "config file path")
+			}),
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+
+		err := Parse(cmd, []string{})
+		require.NoError(t, err)
+
+		output := DefaultUsage(cmd)
+		// Without any short flags, no extra padding should be added
+		require.Contains(t, output, "  --verbose")
+		require.Contains(t, output, "  --config string")
+		require.NotContains(t, output, "     --verbose")
+		require.NotContains(t, output, "     --config")
+	})
+
 	t.Run("no flags section when no flags", func(t *testing.T) {
 		t.Parallel()
 

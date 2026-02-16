@@ -95,39 +95,37 @@ func DefaultUsage(root *Command) string {
 				continue
 			}
 			isGlobal := i < len(root.state.path)-1
-			requiredFlags := make(map[string]bool)
-			for _, m := range cmd.FlagsMetadata {
-				if m.Required {
-					requiredFlags[m.Name] = true
-				}
-			}
+			metaMap := flagMetadataMap(cmd.FlagsMetadata)
 			cmd.Flags.VisitAll(func(f *flag.Flag) {
-				flags = append(flags, flagInfo{
-					name:     "-" + f.Name,
+				fi := flagInfo{
+					name:     "--" + f.Name,
 					usage:    f.Usage,
 					defval:   f.DefValue,
 					typeName: flagTypeName(f),
 					global:   isGlobal,
-					required: requiredFlags[f.Name],
-				})
+				}
+				if m, ok := metaMap[f.Name]; ok {
+					fi.required = m.Required
+					fi.short = m.Short
+				}
+				flags = append(flags, fi)
 			})
 		}
 	} else if terminalCmd.Flags != nil {
 		// Pre-parse fallback: show the command's own flags even without state.
-		requiredFlags := make(map[string]bool)
-		for _, m := range terminalCmd.FlagsMetadata {
-			if m.Required {
-				requiredFlags[m.Name] = true
-			}
-		}
+		metaMap := flagMetadataMap(terminalCmd.FlagsMetadata)
 		terminalCmd.Flags.VisitAll(func(f *flag.Flag) {
-			flags = append(flags, flagInfo{
-				name:     "-" + f.Name,
+			fi := flagInfo{
+				name:     "--" + f.Name,
 				usage:    f.Usage,
 				defval:   f.DefValue,
 				typeName: flagTypeName(f),
-				required: requiredFlags[f.Name],
-			})
+			}
+			if m, ok := metaMap[f.Name]; ok {
+				fi.required = m.Required
+				fi.short = m.Short
+			}
+			flags = append(flags, fi)
 		})
 	}
 
@@ -136,9 +134,17 @@ func DefaultUsage(root *Command) string {
 			return cmp.Compare(a.name, b.name)
 		})
 
+		hasAnyShort := false
+		for _, f := range flags {
+			if f.short != "" {
+				hasAnyShort = true
+				break
+			}
+		}
+
 		maxFlagLen := 0
 		for _, f := range flags {
-			if n := len(f.displayName()); n > maxFlagLen {
+			if n := len(f.displayName(hasAnyShort)); n > maxFlagLen {
 				maxFlagLen = n
 			}
 		}
@@ -155,13 +161,13 @@ func DefaultUsage(root *Command) string {
 
 		if hasLocal {
 			b.WriteString("Flags:\n")
-			writeFlagSection(&b, flags, maxFlagLen, false)
+			writeFlagSection(&b, flags, maxFlagLen, false, hasAnyShort)
 			b.WriteString("\n")
 		}
 
 		if hasGlobal {
 			b.WriteString("Global Flags:\n")
-			writeFlagSection(&b, flags, maxFlagLen, true)
+			writeFlagSection(&b, flags, maxFlagLen, true, hasAnyShort)
 			b.WriteString("\n")
 		}
 	}
@@ -178,7 +184,7 @@ func DefaultUsage(root *Command) string {
 }
 
 // writeFlagSection handles the formatting of flag descriptions
-func writeFlagSection(b *strings.Builder, flags []flagInfo, maxLen int, global bool) {
+func writeFlagSection(b *strings.Builder, flags []flagInfo, maxLen int, global, hasAnyShort bool) {
 	nameWidth := maxLen + 4
 	wrapWidth := defaultTerminalWidth - nameWidth
 
@@ -194,7 +200,7 @@ func writeFlagSection(b *strings.Builder, flags []flagInfo, maxLen int, global b
 			description += fmt.Sprintf(" (default: %s)", f.defval)
 		}
 
-		display := f.displayName()
+		display := f.displayName(hasAnyShort)
 		lines := textutil.Wrap(description, wrapWidth)
 		padding := strings.Repeat(" ", maxLen-len(display)+4)
 		fmt.Fprintf(b, "  %s%s%s\n", display, padding, lines[0])
@@ -206,8 +212,18 @@ func writeFlagSection(b *strings.Builder, flags []flagInfo, maxLen int, global b
 	}
 }
 
+// flagMetadataMap builds a lookup map from flag name to its FlagMetadata.
+func flagMetadataMap(metadata []FlagMetadata) map[string]FlagMetadata {
+	m := make(map[string]FlagMetadata, len(metadata))
+	for _, fm := range metadata {
+		m[fm.Name] = fm
+	}
+	return m
+}
+
 type flagInfo struct {
 	name     string
+	short    string
 	usage    string
 	defval   string
 	typeName string
@@ -215,13 +231,22 @@ type flagInfo struct {
 	required bool
 }
 
-// displayName returns the flag name with its type hint, e.g., "-config string" or "-verbose" (no
-// type for bools).
-func (f flagInfo) displayName() string {
-	if f.typeName == "" {
-		return f.name
+// displayName returns the flag name with optional short alias and type hint. When hasAnyShort is
+// true, flags without a short alias are padded to align with those that have one.
+// Examples: "-v, --verbose", "-o, --output string", "     --config string", "--debug".
+func (f flagInfo) displayName(hasAnyShort bool) string {
+	var name string
+	if f.short != "" {
+		name = "-" + f.short + ", " + f.name
+	} else if hasAnyShort {
+		name = "     " + f.name
+	} else {
+		name = f.name
 	}
-	return f.name + " " + f.typeName
+	if f.typeName == "" {
+		return name
+	}
+	return name + " " + f.typeName
 }
 
 // flagTypeName returns a short type name for a flag's value. Bool flags return "" since their type

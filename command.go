@@ -83,6 +83,10 @@ type FlagMetadata struct {
 
 	// Required indicates whether the flag is required.
 	Required bool
+
+	// Local indicates that the flag should not be inherited by child commands. When true, the
+	// flag is only available on the command that defines it.
+	Local bool
 }
 
 // FlagsFunc is a helper function that creates a new [flag.FlagSet] and applies the given function

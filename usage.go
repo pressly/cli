@@ -90,13 +90,20 @@ func DefaultUsage(root *Command) string {
 
 	var flags []flagInfo
 	if root.state != nil && len(root.state.path) > 0 {
+		terminalIdx := len(root.state.path) - 1
 		for i, cmd := range root.state.path {
 			if cmd.Flags == nil {
 				continue
 			}
-			isGlobal := i < len(root.state.path)-1
+			isGlobal := i < terminalIdx
 			metaMap := flagMetadataMap(cmd.FlagsMetadata)
 			cmd.Flags.VisitAll(func(f *flag.Flag) {
+				// Skip local flags from ancestor commands — they don't appear in child help.
+				if isGlobal {
+					if m, ok := metaMap[f.Name]; ok && m.Local {
+						return
+					}
+				}
 				fi := flagInfo{
 					name:     "--" + f.Name,
 					usage:    f.Usage,

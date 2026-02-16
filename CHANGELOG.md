@@ -7,18 +7,18 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [v0.4.0] - 2026-02-16
+
 ### Added
 
-- `Local` field on `FlagMetadata` for granular flag inheritance control
+- `Local` field on `FlagMetadata` for granular control over flag inheritance -- flags marked local are not inherited by subcommands
 - Short flag aliases via `FlagMetadata.Short`
-- `ParseAndRun` convenience function
+- `ParseAndRun` convenience function for parsing and running a command in one call
 
 ### Changed
 
-- Enhance usage output with type hints, required markers, and zero-default suppression
-- Inline `xflag` package and improve `ParseToEnd`
-- Decompose `Parse` into focused helpers and fix edge cases
-- Update Go module path and references
+- Enhanced usage output with type hints, required markers, and zero-default suppression
+- Improved `ParseToEnd` and internal flag parsing with edge case fixes
 
 ### Fixed
 
@@ -61,7 +61,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `textutil` and `suggest` helper packages
 - GitHub Actions CI
 
-[Unreleased]: https://github.com/pressly/cli/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/pressly/cli/compare/v0.4.0...HEAD
+[v0.4.0]: https://github.com/pressly/cli/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/pressly/cli/compare/v0.2.1...v0.3.0
 [v0.2.1]: https://github.com/pressly/cli/compare/v0.2.0...v0.2.1
 [v0.2.0]: https://github.com/pressly/cli/compare/v0.1.0...v0.2.0

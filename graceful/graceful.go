@@ -100,7 +100,7 @@ func Run(run func(context.Context) error, opts ...Option) {
 			if cfg.logger != nil {
 				cfg.logger.Error("function error", slog.Any("error", err))
 			} else {
-				fmt.Fprintln(cfg.stderr, err)
+				_, _ = fmt.Fprintln(cfg.stderr, err)
 			}
 			exit(1)
 		}
@@ -113,7 +113,7 @@ func Run(run func(context.Context) error, opts ...Option) {
 			if cfg.logger != nil {
 				cfg.logger.Warn(msg)
 			} else {
-				fmt.Fprintln(cfg.stderr, msg)
+				_, _ = fmt.Fprintln(cfg.stderr, msg)
 			}
 			exit(130)
 		}
@@ -127,7 +127,7 @@ func Run(run func(context.Context) error, opts ...Option) {
 		if cfg.logger != nil {
 			cfg.logger.Info(msg)
 		} else {
-			fmt.Fprintln(cfg.stderr, msg)
+			_, _ = fmt.Fprintln(cfg.stderr, msg)
 		}
 
 		// Set up shutdown timeout if configured
@@ -145,7 +145,7 @@ func Run(run func(context.Context) error, opts ...Option) {
 				if cfg.logger != nil {
 					cfg.logger.Error("function error", "error", err)
 				} else {
-					fmt.Fprintln(cfg.stderr, err)
+					_, _ = fmt.Fprintln(cfg.stderr, err)
 				}
 				exit(1)
 			}
@@ -157,7 +157,7 @@ func Run(run func(context.Context) error, opts ...Option) {
 			if cfg.logger != nil {
 				cfg.logger.Warn(msg)
 			} else {
-				fmt.Fprintln(cfg.stderr, msg)
+				_, _ = fmt.Fprintln(cfg.stderr, msg)
 			}
 			exit(130)
 
@@ -167,7 +167,7 @@ func Run(run func(context.Context) error, opts ...Option) {
 			if cfg.logger != nil {
 				cfg.logger.Error(msg)
 			} else {
-				fmt.Fprintln(cfg.stderr, msg)
+				_, _ = fmt.Fprintln(cfg.stderr, msg)
 			}
 			exit(124)
 		}

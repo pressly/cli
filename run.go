@@ -118,9 +118,23 @@ func location(skip int) string {
 
 	frame, _ := runtime.CallersFrames(pcs[:n]).Next()
 
-	// Trim the module name from both function and file paths for cleaner output
+	// Trim the module name from function and file paths for cleaner output.
+	// Function names use the module path directly (e.g., "github.com/pressly/cli.Run").
 	fn := strings.TrimPrefix(frame.Function, getGoModuleName()+"/")
-	file := strings.TrimPrefix(frame.File, getGoModuleName()+"/")
+	// File paths from runtime are absolute (e.g., "/Users/.../cli/run.go"). We want a relative
+	// path for cleaner output. Try to find the module's import path in the filesystem path
+	// (works with GOPATH-style layouts), otherwise fall back to just the base filename.
+	file := frame.File
+	mod := getGoModuleName()
+	if mod != "" {
+		if idx := strings.Index(file, mod+"/"); idx != -1 {
+			file = file[idx+len(mod)+1:]
+		} else {
+			file = file[strings.LastIndex(file, "/")+1:]
+		}
+	} else {
+		file = file[strings.LastIndex(file, "/")+1:]
+	}
 
 	return fn + " " + file + ":" + strconv.Itoa(frame.Line)
 }

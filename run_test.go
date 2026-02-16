@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"flag"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -173,7 +174,7 @@ func TestRun(t *testing.T) {
 		}
 		err := Parse(root, nil)
 		require.NoError(t, err)
-		
+
 		stdout := bytes.NewBuffer(nil)
 		stderr := bytes.NewBuffer(nil)
 		err = Run(context.Background(), root, &RunOptions{
@@ -194,21 +195,30 @@ func TestRun(t *testing.T) {
 			}),
 			Exec: func(ctx context.Context, s *State) error { return nil },
 		}
-		
+
 		// Test max int
 		err := Parse(root, []string{"--int", "2147483647"})
 		require.NoError(t, err)
 		require.Equal(t, 2147483647, GetFlag[int](root.state, "int"))
-		
+
 		// Test min int
 		err = Parse(root, []string{"--int", "-2147483648"})
 		require.NoError(t, err)
 		require.Equal(t, -2147483648, GetFlag[int](root.state, "int"))
-		
+
 		// Test that parsing still works with large values (may not overflow in Go flag package)
 		err = Parse(root, []string{"--int", "999999999"})
 		require.NoError(t, err)
 		require.Equal(t, 999999999, GetFlag[int](root.state, "int"))
+	})
+	t.Run("location file path is relative", func(t *testing.T) {
+		t.Parallel()
+		loc := location(0)
+		// location returns "funcName file:line"
+		parts := strings.SplitN(loc, " ", 2)
+		require.Len(t, parts, 2, "location should return 'func file:line'")
+		// File path should be relative, not an absolute path
+		require.False(t, strings.HasPrefix(parts[1], "/"), "file path should be relative, not absolute: %s", parts[1])
 	})
 	t.Run("string flags with special characters", func(t *testing.T) {
 		t.Parallel()
@@ -219,7 +229,7 @@ func TestRun(t *testing.T) {
 			}),
 			Exec: func(ctx context.Context, s *State) error { return nil },
 		}
-		
+
 		specialValues := []string{
 			"text with spaces",
 			"text\"with\"quotes",
@@ -228,7 +238,7 @@ func TestRun(t *testing.T) {
 			"text\twith\ttabs",
 			"text@with#symbols$",
 		}
-		
+
 		for _, val := range specialValues {
 			err := Parse(root, []string{"--text", val})
 			require.NoError(t, err)

@@ -13,11 +13,11 @@ import (
 
 // testState is a helper struct to hold the commands for testing
 //
-//		 root --verbose --version
-//		 ├── add --dry-run
-//		 └── nested --force
-//			└── sub --echo
-//	     └── hello --mandatory-flag=false --another-mandatory-flag some-value
+//	root --verbose --version
+//	├── add --dry-run
+//	└── nested --force
+//	   └── sub --echo
+//	└── hello --mandatory-flag=false --another-mandatory-flag some-value
 type testState struct {
 	add                *Command
 	nested, sub, hello *Command
@@ -498,23 +498,23 @@ func TestParse(t *testing.T) {
 			Exec: func(ctx context.Context, s *State) error { return nil },
 		}
 		level4 := &Command{
-			Name: "level4",
+			Name:        "level4",
 			SubCommands: []*Command{level5},
 		}
 		level3 := &Command{
-			Name: "level3",
+			Name:        "level3",
 			SubCommands: []*Command{level4},
 		}
 		level2 := &Command{
-			Name: "level2",
+			Name:        "level2",
 			SubCommands: []*Command{level3},
 		}
 		level1 := &Command{
-			Name: "level1",
+			Name:        "level1",
 			SubCommands: []*Command{level2},
 		}
 		root := &Command{
-			Name: "root",
+			Name:        "root",
 			SubCommands: []*Command{level1},
 		}
 		err := Parse(root, []string{"level1", "level2", "level3", "level4", "level5"})
@@ -532,7 +532,7 @@ func TestParse(t *testing.T) {
 			})
 		}
 		root := &Command{
-			Name: "root",
+			Name:        "root",
 			SubCommands: subcommands,
 		}
 		err := Parse(root, []string{"cmda"})
@@ -549,7 +549,7 @@ func TestParse(t *testing.T) {
 				{Name: "duplicate", Exec: func(ctx context.Context, s *State) error { return nil }},
 			},
 		}
-		// This library may not check for duplicate names, so just verify it works 
+		// This library may not check for duplicate names, so just verify it works
 		err := Parse(cmd, []string{"duplicate"})
 		require.NoError(t, err)
 		// Just ensure it doesn't crash and can parse the first match
@@ -595,6 +595,88 @@ func TestParse(t *testing.T) {
 		err := Parse(cmd, longArgList)
 		require.NoError(t, err)
 		require.Equal(t, longArgList, cmd.state.Args)
+	})
+	t.Run("positional arg matching command name", func(t *testing.T) {
+		t.Parallel()
+
+		add := &Command{
+			Name: "add",
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+		root := &Command{
+			Name:        "mycli",
+			SubCommands: []*Command{add},
+		}
+		err := Parse(root, []string{"add", "add"})
+		require.NoError(t, err)
+		assert.Equal(t, add, getCommand(t, root))
+		// The second "add" is a positional arg, not a command traversal.
+		assert.Equal(t, []string{"add"}, root.state.Args)
+	})
+	t.Run("ancestor flag value not treated as command", func(t *testing.T) {
+		t.Parallel()
+
+		child := &Command{
+			Name: "child",
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+		parent := &Command{
+			Name:        "parent",
+			SubCommands: []*Command{child},
+		}
+		root := &Command{
+			Name: "mycli",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.String("output", "", "output file")
+			}),
+			SubCommands: []*Command{parent},
+		}
+
+		// Root flag --output used between parent and child: the value "foo" should be skipped
+		// during command resolution, not treated as an unknown command.
+		err := Parse(root, []string{"parent", "--output", "foo", "child"})
+		require.NoError(t, err, "ancestor flag value should not be treated as unknown command")
+		assert.Equal(t, child, getCommand(t, root))
+		assert.Equal(t, "foo", GetFlag[string](root.state, "output"))
+	})
+	t.Run("required flag set to default value", func(t *testing.T) {
+		t.Parallel()
+
+		root := &Command{
+			Name: "mycli",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.String("port", "8080", "port number")
+			}),
+			FlagsMetadata: []FlagMetadata{
+				{Name: "port", Required: true},
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+
+		// Explicitly passing the default value should satisfy the required check.
+		err := Parse(root, []string{"--port", "8080"})
+		require.NoError(t, err, "explicitly setting required flag to its default value should not fail")
+		assert.Equal(t, "8080", GetFlag[string](root.state, "port"))
+	})
+	t.Run("required bool flag prefix match not too broad", func(t *testing.T) {
+		t.Parallel()
+
+		root := &Command{
+			Name: "mycli",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.Bool("force", false, "force operation")
+				f.Bool("force-all", false, "force all")
+			}),
+			FlagsMetadata: []FlagMetadata{
+				{Name: "force", Required: true},
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+
+		// --force-all should NOT satisfy the required --force flag.
+		err := Parse(root, []string{"--force-all"})
+		require.Error(t, err, "--force-all should not satisfy required --force")
+		assert.Contains(t, err.Error(), "required flag")
 	})
 	t.Run("mixed flags and args in various orders", func(t *testing.T) {
 		t.Parallel()

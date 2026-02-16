@@ -118,9 +118,17 @@ func location(skip int) string {
 
 	frame, _ := runtime.CallersFrames(pcs[:n]).Next()
 
-	// Trim the module name from both function and file paths for cleaner output
+	// Trim the module name from function and file paths for cleaner output.
+	// Function names use the module path directly (e.g., "github.com/pressly/cli.Run").
 	fn := strings.TrimPrefix(frame.Function, getGoModuleName()+"/")
-	file := strings.TrimPrefix(frame.File, getGoModuleName()+"/")
+	// File paths are absolute filesystem paths (e.g., "/Users/.../cli/run.go"), so we find
+	// the module path within and take the suffix after it.
+	file := frame.File
+	if mod := getGoModuleName(); mod != "" {
+		if idx := strings.Index(file, mod+"/"); idx != -1 {
+			file = file[idx+len(mod)+1:]
+		}
+	}
 
 	return fn + " " + file + ":" + strconv.Itoa(frame.Line)
 }

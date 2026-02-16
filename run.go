@@ -70,7 +70,7 @@ func ParseAndRun(ctx context.Context, root *Command, args []string, options *Run
 	if err := Parse(root, args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
 			options = checkAndSetRunOptions(options)
-			fmt.Fprintln(options.Stdout, DefaultUsage(root))
+			_, _ = fmt.Fprintln(options.Stdout, DefaultUsage(root))
 			return nil
 		}
 		return err

@@ -105,10 +105,10 @@ func DefaultUsage(root *Command) string {
 					}
 				}
 				fi := flagInfo{
-					name:     "--" + f.Name,
-					usage:    f.Usage,
-					defval:   f.DefValue,
-					typeName: flagTypeName(f),
+					name:      "--" + f.Name,
+					usage:     f.Usage,
+					defval:    f.DefValue,
+					typeName:  flagTypeName(f),
 					inherited: isInherited,
 				}
 				if m, ok := metaMap[f.Name]; ok {
@@ -229,13 +229,13 @@ func flagMetadataMap(metadata []FlagMetadata) map[string]FlagMetadata {
 }
 
 type flagInfo struct {
-	name     string
-	short    string
-	usage    string
-	defval   string
-	typeName string
+	name      string
+	short     string
+	usage     string
+	defval    string
+	typeName  string
 	inherited bool
-	required bool
+	required  bool
 }
 
 // displayName returns the flag name with optional short alias and type hint. When hasAnyShort is

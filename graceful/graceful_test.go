@@ -40,7 +40,7 @@ func sendSignal(trigger <-chan struct{}, delay time.Duration) {
 	if delay > 0 {
 		time.Sleep(delay)
 	}
-	syscall.Kill(syscall.Getpid(), syscall.SIGINT)
+	_ = syscall.Kill(syscall.Getpid(), syscall.SIGINT)
 }
 
 func TestRun_Success(t *testing.T) {

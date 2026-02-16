@@ -124,7 +124,16 @@ func location(skip int) string {
 	// File paths are absolute filesystem paths (e.g., "/Users/.../cli/run.go"), so we find
 	// the module path within and take the suffix after it.
 	file := frame.File
-	if mod := getGoModuleName(); mod != "" {
+	mod := getGoModuleName()
+	if mod == "" {
+		// When running as a test binary, debug.ReadBuildInfo().Main.Path is empty. Derive the
+		// package path from the function name (e.g., "github.com/pressly/cli.Run" ->
+		// "github.com/pressly/cli") and use that to trim the file path.
+		if idx := strings.LastIndex(frame.Function, "."); idx != -1 {
+			mod = frame.Function[:idx]
+		}
+	}
+	if mod != "" {
 		if idx := strings.Index(file, mod+"/"); idx != -1 {
 			file = file[idx+len(mod)+1:]
 		}

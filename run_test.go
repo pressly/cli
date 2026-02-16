@@ -111,7 +111,7 @@ func TestRun(t *testing.T) {
 		}
 		err := Parse(root, nil)
 		require.NoError(t, err)
-		err = Run(nil, root, nil)
+		err = Run(nil, root, nil) //nolint:staticcheck // intentionally testing nil context
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "context is nil")
 	})

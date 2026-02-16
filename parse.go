@@ -280,10 +280,46 @@ func validateCommands(root *Command, path []string) error {
 		return fmt.Errorf("command [%s]: %w", strings.Join(quoted, ", "), err)
 	}
 
+	if err := validateFlagsMetadata(root); err != nil {
+		quoted := make([]string, len(currentPath))
+		for i, p := range currentPath {
+			quoted[i] = strconv.Quote(p)
+		}
+		return fmt.Errorf("command [%s]: %w", strings.Join(quoted, ", "), err)
+	}
+
 	for _, sub := range root.SubCommands {
 		if err := validateCommands(sub, currentPath); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// validateFlagsMetadata checks that each FlagMetadata entry refers to a flag that exists in the
+// command's FlagSet, that Short aliases are single ASCII letters, and that no two entries share the
+// same Short alias.
+func validateFlagsMetadata(cmd *Command) error {
+	if len(cmd.FlagsMetadata) == 0 {
+		return nil
+	}
+	seenShorts := make(map[string]string) // short -> flag name
+	for _, fm := range cmd.FlagsMetadata {
+		if cmd.Flags == nil || cmd.Flags.Lookup(fm.Name) == nil {
+			return fmt.Errorf("flag metadata references unknown flag %q", fm.Name)
+		}
+		if fm.Short == "" {
+			continue
+		}
+		if len(fm.Short) != 1 || fm.Short[0] < 'a' || fm.Short[0] > 'z' {
+			if fm.Short[0] < 'A' || fm.Short[0] > 'Z' {
+				return fmt.Errorf("flag %q: short alias must be a single ASCII letter, got %q", fm.Name, fm.Short)
+			}
+		}
+		if other, ok := seenShorts[fm.Short]; ok {
+			return fmt.Errorf("duplicate short flag %q: used by both %q and %q", fm.Short, other, fm.Name)
+		}
+		seenShorts[fm.Short] = fm.Name
 	}
 	return nil
 }

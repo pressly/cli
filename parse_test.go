@@ -368,9 +368,7 @@ func TestParse(t *testing.T) {
 		}
 		err := Parse(cmd, nil)
 		require.Error(t, err)
-		// TODO(mf): consider improving this error message so it's obvious that a "required" flag
-		// was set by the cli author but not registered in the flag set
-		require.ErrorContains(t, err, `command "root": internal error: required flag -some-other-flag not found in flag set`)
+		require.ErrorContains(t, err, `flag metadata references unknown flag "some-other-flag"`)
 	})
 	t.Run("space in command name", func(t *testing.T) {
 		t.Parallel()
@@ -569,7 +567,7 @@ func TestParse(t *testing.T) {
 		}
 		err := Parse(cmd, []string{"--existing=value"})
 		require.Error(t, err)
-		require.ErrorContains(t, err, "required flag -nonexistent not found in flag set")
+		require.ErrorContains(t, err, `flag metadata references unknown flag "nonexistent"`)
 	})
 	t.Run("args with special characters", func(t *testing.T) {
 		t.Parallel()
@@ -782,6 +780,59 @@ func TestShortFlags(t *testing.T) {
 		require.NoError(t, err)
 		// Both short and long name should return the same value
 		require.Equal(t, 42, GetFlag[int](cmd.state, "count"))
+	})
+
+	t.Run("metadata references unknown flag", func(t *testing.T) {
+		t.Parallel()
+		cmd := &Command{
+			Name: "root",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.Bool("verbose", false, "enable verbose output")
+			}),
+			FlagsMetadata: []FlagMetadata{
+				{Name: "vrbose", Short: "v"}, // typo in Name
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+		err := Parse(cmd, []string{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), `flag metadata references unknown flag "vrbose"`)
+	})
+
+	t.Run("short alias must be single ASCII letter", func(t *testing.T) {
+		t.Parallel()
+		cmd := &Command{
+			Name: "root",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.Bool("verbose", false, "enable verbose output")
+			}),
+			FlagsMetadata: []FlagMetadata{
+				{Name: "verbose", Short: "vv"},
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+		err := Parse(cmd, []string{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "short alias must be a single ASCII letter")
+	})
+
+	t.Run("duplicate short alias", func(t *testing.T) {
+		t.Parallel()
+		cmd := &Command{
+			Name: "root",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.Bool("verbose", false, "enable verbose output")
+				f.Bool("version", false, "show version")
+			}),
+			FlagsMetadata: []FlagMetadata{
+				{Name: "verbose", Short: "v"},
+				{Name: "version", Short: "v"},
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+		err := Parse(cmd, []string{})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), `duplicate short flag "v"`)
 	})
 }
 

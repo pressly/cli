@@ -61,6 +61,9 @@ func Run(ctx context.Context, root *Command, options *RunOptions) error {
 //	    os.Exit(1)
 //	}
 //
+// The options parameter may be nil, in which case default values are used. See [RunOptions] for
+// more details.
+//
 // For applications that need to perform work between parsing and execution (e.g., initializing
 // resources based on parsed flags), use [Parse] and [Run] separately.
 func ParseAndRun(ctx context.Context, root *Command, args []string, options *RunOptions) error {

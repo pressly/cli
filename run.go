@@ -121,26 +121,19 @@ func location(skip int) string {
 	// Trim the module name from function and file paths for cleaner output.
 	// Function names use the module path directly (e.g., "github.com/pressly/cli.Run").
 	fn := strings.TrimPrefix(frame.Function, getGoModuleName()+"/")
-	// File paths are absolute filesystem paths (e.g., "/Users/.../cli/run.go"), so we find
-	// the module path within and take the suffix after it.
+	// File paths from runtime are absolute (e.g., "/Users/.../cli/run.go"). We want a relative
+	// path for cleaner output. Try to find the module's import path in the filesystem path
+	// (works with GOPATH-style layouts), otherwise fall back to just the base filename.
 	file := frame.File
 	mod := getGoModuleName()
-	if mod == "" {
-		// When running as a test binary, debug.ReadBuildInfo().Main.Path is empty. Derive the
-		// package path from the function name. The function name format is
-		// "import/path.FuncName" (e.g., "github.com/pressly/cli.Run"). For closures it may be
-		// "github.com/pressly/cli.TestRun.func1.1". The package path is everything up to the
-		// first "." after the last "/".
-		if slashIdx := strings.LastIndex(frame.Function, "/"); slashIdx != -1 {
-			if dotIdx := strings.Index(frame.Function[slashIdx:], "."); dotIdx != -1 {
-				mod = frame.Function[:slashIdx+dotIdx]
-			}
-		}
-	}
 	if mod != "" {
 		if idx := strings.Index(file, mod+"/"); idx != -1 {
 			file = file[idx+len(mod)+1:]
+		} else {
+			file = file[strings.LastIndex(file, "/")+1:]
 		}
+	} else {
+		file = file[strings.LastIndex(file, "/")+1:]
 	}
 
 	return fn + " " + file + ":" + strconv.Itoa(frame.Line)

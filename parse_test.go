@@ -937,7 +937,7 @@ func TestLocalFlags(t *testing.T) {
 		require.ErrorContains(t, err, "required flag")
 	})
 
-	t.Run("usage excludes local parent flags from global flags", func(t *testing.T) {
+	t.Run("usage excludes local parent flags from inherited flags", func(t *testing.T) {
 		t.Parallel()
 		child := &Command{
 			Name: "child",
@@ -962,7 +962,7 @@ func TestLocalFlags(t *testing.T) {
 		require.ErrorIs(t, err, flag.ErrHelp)
 
 		usage := DefaultUsage(root)
-		// --verbose should appear in global flags (not local)
+		// --verbose should appear in inherited flags (not local)
 		assert.Contains(t, usage, "--verbose")
 		// --version should NOT appear (local to root, not inherited)
 		assert.NotContains(t, usage, "--version")

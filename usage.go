@@ -95,11 +95,11 @@ func DefaultUsage(root *Command) string {
 			if cmd.Flags == nil {
 				continue
 			}
-			isGlobal := i < terminalIdx
+			isInherited := i < terminalIdx
 			metaMap := flagMetadataMap(cmd.FlagsMetadata)
 			cmd.Flags.VisitAll(func(f *flag.Flag) {
 				// Skip local flags from ancestor commands — they don't appear in child help.
-				if isGlobal {
+				if isInherited {
 					if m, ok := metaMap[f.Name]; ok && m.Local {
 						return
 					}
@@ -109,7 +109,7 @@ func DefaultUsage(root *Command) string {
 					usage:    f.Usage,
 					defval:   f.DefValue,
 					typeName: flagTypeName(f),
-					global:   isGlobal,
+					inherited: isInherited,
 				}
 				if m, ok := metaMap[f.Name]; ok {
 					fi.required = m.Required
@@ -157,10 +157,10 @@ func DefaultUsage(root *Command) string {
 		}
 
 		hasLocal := false
-		hasGlobal := false
+		hasInherited := false
 		for _, f := range flags {
-			if f.global {
-				hasGlobal = true
+			if f.inherited {
+				hasInherited = true
 			} else {
 				hasLocal = true
 			}
@@ -172,8 +172,8 @@ func DefaultUsage(root *Command) string {
 			b.WriteString("\n")
 		}
 
-		if hasGlobal {
-			b.WriteString("Global Flags:\n")
+		if hasInherited {
+			b.WriteString("Inherited Flags:\n")
 			writeFlagSection(&b, flags, maxFlagLen, true, hasAnyShort)
 			b.WriteString("\n")
 		}
@@ -191,12 +191,12 @@ func DefaultUsage(root *Command) string {
 }
 
 // writeFlagSection handles the formatting of flag descriptions
-func writeFlagSection(b *strings.Builder, flags []flagInfo, maxLen int, global, hasAnyShort bool) {
+func writeFlagSection(b *strings.Builder, flags []flagInfo, maxLen int, inherited, hasAnyShort bool) {
 	nameWidth := maxLen + 4
 	wrapWidth := defaultTerminalWidth - nameWidth
 
 	for _, f := range flags {
-		if f.global != global {
+		if f.inherited != inherited {
 			continue
 		}
 
@@ -234,7 +234,7 @@ type flagInfo struct {
 	usage    string
 	defval   string
 	typeName string
-	global   bool
+	inherited bool
 	required bool
 }
 

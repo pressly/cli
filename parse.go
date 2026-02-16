@@ -106,11 +106,22 @@ func resolveCommandPath(root *Command, argsToParse []string) (*Command, error) {
 
 			// Check if this flag expects a value across all commands in the chain (not just the
 			// current command), since flags from ancestor commands are inherited and can appear
-			// anywhere.
+			// anywhere. Also check short flag aliases from FlagsMetadata.
 			name := strings.TrimLeft(arg, "-")
 			skipValue := false
 			for _, cmd := range root.state.path {
-				if f := cmd.Flags.Lookup(name); f != nil {
+				// First try direct lookup.
+				f := cmd.Flags.Lookup(name)
+				// If not found, check if it's a short alias.
+				if f == nil {
+					for _, fm := range cmd.FlagsMetadata {
+						if fm.Short == name {
+							f = cmd.Flags.Lookup(fm.Name)
+							break
+						}
+					}
+				}
+				if f != nil {
 					if _, isBool := f.Value.(interface{ IsBoolFlag() bool }); !isBool {
 						skipValue = true
 					}
@@ -145,21 +156,41 @@ func resolveCommandPath(root *Command, argsToParse []string) (*Command, error) {
 }
 
 // combineFlags merges flags from the command path into a single FlagSet. Flags are added in reverse
-// order (deepest command first) so that child flags take precedence over parent flags.
+// order (deepest command first) so that child flags take precedence over parent flags. Short flag
+// aliases from FlagsMetadata are also registered, sharing the same Value as their long counterpart.
 func combineFlags(path []*Command) *flag.FlagSet {
 	combined := flag.NewFlagSet(path[0].Name, flag.ContinueOnError)
 	combined.SetOutput(io.Discard)
 	for i := len(path) - 1; i >= 0; i-- {
 		cmd := path[i]
-		if cmd.Flags != nil {
-			cmd.Flags.VisitAll(func(f *flag.Flag) {
-				if combined.Lookup(f.Name) == nil {
-					combined.Var(f.Value, f.Name, f.Usage)
-				}
-			})
+		if cmd.Flags == nil {
+			continue
 		}
+		shortMap := shortFlagMap(cmd.FlagsMetadata)
+		cmd.Flags.VisitAll(func(f *flag.Flag) {
+			if combined.Lookup(f.Name) == nil {
+				combined.Var(f.Value, f.Name, f.Usage)
+			}
+			// Register the short alias pointing to the same Value.
+			if short, ok := shortMap[f.Name]; ok {
+				if combined.Lookup(short) == nil {
+					combined.Var(f.Value, short, f.Usage)
+				}
+			}
+		})
 	}
 	return combined
+}
+
+// shortFlagMap builds a map from long flag name to short alias from FlagsMetadata.
+func shortFlagMap(metadata []FlagMetadata) map[string]string {
+	m := make(map[string]string, len(metadata))
+	for _, fm := range metadata {
+		if fm.Short != "" {
+			m[fm.Name] = fm.Short
+		}
+	}
+	return m
 }
 
 // checkRequiredFlags verifies that all flags marked as required in FlagsMetadata were explicitly
@@ -249,10 +280,46 @@ func validateCommands(root *Command, path []string) error {
 		return fmt.Errorf("command [%s]: %w", strings.Join(quoted, ", "), err)
 	}
 
+	if err := validateFlagsMetadata(root); err != nil {
+		quoted := make([]string, len(currentPath))
+		for i, p := range currentPath {
+			quoted[i] = strconv.Quote(p)
+		}
+		return fmt.Errorf("command [%s]: %w", strings.Join(quoted, ", "), err)
+	}
+
 	for _, sub := range root.SubCommands {
 		if err := validateCommands(sub, currentPath); err != nil {
 			return err
 		}
+	}
+	return nil
+}
+
+// validateFlagsMetadata checks that each FlagMetadata entry refers to a flag that exists in the
+// command's FlagSet, that Short aliases are single ASCII letters, and that no two entries share the
+// same Short alias.
+func validateFlagsMetadata(cmd *Command) error {
+	if len(cmd.FlagsMetadata) == 0 {
+		return nil
+	}
+	seenShorts := make(map[string]string) // short -> flag name
+	for _, fm := range cmd.FlagsMetadata {
+		if cmd.Flags == nil || cmd.Flags.Lookup(fm.Name) == nil {
+			return fmt.Errorf("flag metadata references unknown flag %q", fm.Name)
+		}
+		if fm.Short == "" {
+			continue
+		}
+		if len(fm.Short) != 1 || fm.Short[0] < 'a' || fm.Short[0] > 'z' {
+			if fm.Short[0] < 'A' || fm.Short[0] > 'Z' {
+				return fmt.Errorf("flag %q: short alias must be a single ASCII letter, got %q", fm.Name, fm.Short)
+			}
+		}
+		if other, ok := seenShorts[fm.Short]; ok {
+			return fmt.Errorf("duplicate short flag %q: used by both %q and %q", fm.Short, other, fm.Name)
+		}
+		seenShorts[fm.Short] = fm.Name
 	}
 	return nil
 }

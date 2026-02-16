@@ -40,7 +40,7 @@ resolved command. For applications that need work between parsing and execution,
 ## Flags
 
 `FlagsFunc` is a convenience for defining flags inline. Use `FlagsMetadata` to extend the standard
-`flag` package with features like required flag enforcement:
+`flag` package with features like required flag enforcement and short aliases:
 
 ```go
 Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
@@ -48,9 +48,13 @@ Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 	f.String("output", "", "output file")
 }),
 FlagsMetadata: []cli.FlagMetadata{
-	{Name: "output", Required: true},
+	{Name: "verbose", Short: "v"},
+	{Name: "output", Short: "o", Required: true},
 },
 ```
+
+Short aliases register `-v` as an alias for `--verbose`, `-o` as an alias for `--output`, and so on.
+Both forms are shown in help output automatically.
 
 Access flags inside `Exec` with the type-safe `GetFlag` function:
 
@@ -107,8 +111,8 @@ There are many great CLI libraries out there, but I always felt [they were too h
 needs](https://mfridman.com/blog/2021/a-simpler-building-block-for-go-clis/).
 
 Inspired by Peter Bourgon's [ff](https://github.com/peterbourgon/ff) library, specifically the `v3`
-branch, which was so close to what I wanted. The `v4` branch took a different direction, and I wanted
-to keep the simplicity of `v3`. This library carries that idea forward.
+branch, which was so close to what I wanted. The `v4` branch took a different direction, and I
+wanted to keep the simplicity of `v3`. This library carries that idea forward.
 
 ## License
 

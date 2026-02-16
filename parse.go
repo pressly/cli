@@ -50,7 +50,7 @@ func Parse(root *Command, args []string) error {
 		if arg == "-h" || arg == "--h" || arg == "-help" || arg == "--help" {
 			// Combine flags first so the help message includes all inherited flags
 			combineFlags(root.state.path)
-			return flag.ErrHelp
+			return ErrHelp
 		}
 	}
 

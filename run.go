@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -68,7 +67,7 @@ func Run(ctx context.Context, root *Command, options *RunOptions) error {
 // resources based on parsed flags), use [Parse] and [Run] separately.
 func ParseAndRun(ctx context.Context, root *Command, args []string, options *RunOptions) error {
 	if err := Parse(root, args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
+		if errors.Is(err, ErrHelp) {
 			options = checkAndSetRunOptions(options)
 			_, _ = fmt.Fprintln(options.Stdout, DefaultUsage(root))
 			return nil

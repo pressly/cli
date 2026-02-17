@@ -106,13 +106,13 @@ func resolveCommandPath(root *Command, argsToParse []string) (*Command, error) {
 
 			// Check if this flag expects a value across all commands in the chain (not just the
 			// current command), since flags from ancestor commands are inherited and can appear
-			// anywhere. Also check short flag aliases from FlagsMetadata.
+			// anywhere. Also check short flag aliases from FlagOptions.
 			name := strings.TrimLeft(arg, "-")
 			skipValue := false
 			for _, cmd := range root.state.path {
-				localFlags := localFlagSet(cmd.FlagsMetadata)
-				// Skip local flags on ancestor commands (any command already in the
-				// path is an ancestor of the not-yet-resolved terminal command).
+				localFlags := localFlagSet(cmd.FlagOptions)
+				// Skip local flags on ancestor commands (any command already in the path is an
+				// ancestor of the not-yet-resolved terminal command).
 				if localFlags[name] {
 					continue
 				}
@@ -120,7 +120,7 @@ func resolveCommandPath(root *Command, argsToParse []string) (*Command, error) {
 				f := cmd.Flags.Lookup(name)
 				// If not found, check if it's a short alias.
 				if f == nil {
-					for _, fm := range cmd.FlagsMetadata {
+					for _, fm := range cmd.FlagOptions {
 						if fm.Short == name {
 							if localFlags[fm.Name] {
 								break
@@ -166,7 +166,7 @@ func resolveCommandPath(root *Command, argsToParse []string) (*Command, error) {
 
 // combineFlags merges flags from the command path into a single FlagSet. Flags are added in reverse
 // order (deepest command first) so that child flags take precedence over parent flags. Short flag
-// aliases from FlagsMetadata are also registered, sharing the same Value as their long counterpart.
+// aliases from FlagOptions are also registered, sharing the same Value as their long counterpart.
 func combineFlags(path []*Command) *flag.FlagSet {
 	combined := flag.NewFlagSet(path[0].Name, flag.ContinueOnError)
 	combined.SetOutput(io.Discard)
@@ -176,8 +176,8 @@ func combineFlags(path []*Command) *flag.FlagSet {
 		if cmd.Flags == nil {
 			continue
 		}
-		localFlags := localFlagSet(cmd.FlagsMetadata)
-		shortMap := shortFlagMap(cmd.FlagsMetadata)
+		localFlags := localFlagSet(cmd.FlagOptions)
+		shortMap := shortFlagMap(cmd.FlagOptions)
 		isAncestor := i < terminalIdx
 		cmd.Flags.VisitAll(func(f *flag.Flag) {
 			// Skip local flags from ancestor commands — they are not inherited.
@@ -198,10 +198,10 @@ func combineFlags(path []*Command) *flag.FlagSet {
 	return combined
 }
 
-// localFlagSet builds a set of flag names that are marked as local in FlagsMetadata.
-func localFlagSet(metadata []FlagMetadata) map[string]bool {
-	m := make(map[string]bool, len(metadata))
-	for _, fm := range metadata {
+// localFlagSet builds a set of flag names that are marked as local in FlagOptions.
+func localFlagSet(options []FlagOption) map[string]bool {
+	m := make(map[string]bool, len(options))
+	for _, fm := range options {
 		if fm.Local {
 			m[fm.Name] = true
 		}
@@ -209,10 +209,10 @@ func localFlagSet(metadata []FlagMetadata) map[string]bool {
 	return m
 }
 
-// shortFlagMap builds a map from long flag name to short alias from FlagsMetadata.
-func shortFlagMap(metadata []FlagMetadata) map[string]string {
-	m := make(map[string]string, len(metadata))
-	for _, fm := range metadata {
+// shortFlagMap builds a map from long flag name to short alias from FlagOptions.
+func shortFlagMap(options []FlagOption) map[string]string {
+	m := make(map[string]string, len(options))
+	for _, fm := range options {
 		if fm.Short != "" {
 			m[fm.Name] = fm.Short
 		}
@@ -220,8 +220,8 @@ func shortFlagMap(metadata []FlagMetadata) map[string]string {
 	return m
 }
 
-// checkRequiredFlags verifies that all flags marked as required in FlagsMetadata were explicitly
-// set during parsing.
+// checkRequiredFlags verifies that all flags marked as required in FlagOptions were explicitly set
+// during parsing.
 func checkRequiredFlags(path []*Command, combined *flag.FlagSet) error {
 	// Build a set of flags that were explicitly set during parsing. Visit (unlike VisitAll) only
 	// iterates over flags that were actually provided by the user, regardless of their value.
@@ -233,19 +233,19 @@ func checkRequiredFlags(path []*Command, combined *flag.FlagSet) error {
 	terminalIdx := len(path) - 1
 	var missingFlags []string
 	for i, cmd := range path {
-		for _, flagMetadata := range cmd.FlagsMetadata {
-			if !flagMetadata.Required {
+		for _, fo := range cmd.FlagOptions {
+			if !fo.Required {
 				continue
 			}
 			// Skip required-flag checks for local flags on ancestor commands.
-			if flagMetadata.Local && i < terminalIdx {
+			if fo.Local && i < terminalIdx {
 				continue
 			}
-			if combined.Lookup(flagMetadata.Name) == nil {
-				return fmt.Errorf("command %q: internal error: required flag %s not found in flag set", getCommandPath(path), formatFlagName(flagMetadata.Name))
+			if combined.Lookup(fo.Name) == nil {
+				return fmt.Errorf("command %q: internal error: required flag %s not found in flag set", getCommandPath(path), formatFlagName(fo.Name))
 			}
-			if _, ok := setFlags[flagMetadata.Name]; !ok {
-				missingFlags = append(missingFlags, formatFlagName(flagMetadata.Name))
+			if _, ok := setFlags[fo.Name]; !ok {
+				missingFlags = append(missingFlags, formatFlagName(fo.Name))
 			}
 		}
 	}
@@ -312,7 +312,7 @@ func validateCommands(root *Command, path []string) error {
 		return fmt.Errorf("command [%s]: %w", strings.Join(quoted, ", "), err)
 	}
 
-	if err := validateFlagsMetadata(root); err != nil {
+	if err := validateFlagOptions(root); err != nil {
 		quoted := make([]string, len(currentPath))
 		for i, p := range currentPath {
 			quoted[i] = strconv.Quote(p)
@@ -328,17 +328,17 @@ func validateCommands(root *Command, path []string) error {
 	return nil
 }
 
-// validateFlagsMetadata checks that each FlagMetadata entry refers to a flag that exists in the
+// validateFlagOptions checks that each FlagOption entry refers to a flag that exists in the
 // command's FlagSet, that Short aliases are single ASCII letters, and that no two entries share the
 // same Short alias.
-func validateFlagsMetadata(cmd *Command) error {
-	if len(cmd.FlagsMetadata) == 0 {
+func validateFlagOptions(cmd *Command) error {
+	if len(cmd.FlagOptions) == 0 {
 		return nil
 	}
 	seenShorts := make(map[string]string) // short -> flag name
-	for _, fm := range cmd.FlagsMetadata {
+	for _, fm := range cmd.FlagOptions {
 		if cmd.Flags == nil || cmd.Flags.Lookup(fm.Name) == nil {
-			return fmt.Errorf("flag metadata references unknown flag %q", fm.Name)
+			return fmt.Errorf("flag option references unknown flag %q", fm.Name)
 		}
 		if fm.Short == "" {
 			continue

@@ -7,12 +7,17 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING**: Rename `FlagMetadata` to `FlagOption` and `FlagsMetadata` field to `FlagOptions`
+
 ## [v0.4.0] - 2026-02-16
 
 ### Added
 
-- `Local` field on `FlagMetadata` for granular control over flag inheritance -- flags marked local are not inherited by subcommands
-- Short flag aliases via `FlagMetadata.Short`
+- `Local` field on `FlagOption` for granular control over flag inheritance -- flags marked local are
+  not inherited by subcommands
+- Short flag aliases via `FlagOption.Short`
 - `ParseAndRun` convenience function for parsing and running a command in one call
 
 ### Changed

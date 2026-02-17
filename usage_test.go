@@ -274,7 +274,7 @@ func TestUsageGeneration(t *testing.T) {
 				fset.Bool("debug", false, "enable debug mode")
 				fset.String("config", "", "config file path")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "config", Required: true},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -406,7 +406,7 @@ func TestWriteFlagSection(t *testing.T) {
 				fset.String("file", "", "path to file")
 				fset.String("output", "stdout", "output destination")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "file", Required: true},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -433,7 +433,7 @@ func TestWriteFlagSection(t *testing.T) {
 				fset.String("output", "", "output file")
 				fset.String("config", "", "config file path")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "verbose", Short: "v"},
 				{Name: "output", Short: "o"},
 			},

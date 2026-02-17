@@ -14,19 +14,6 @@ import (
 	"github.com/pressly/cli"
 )
 
-// todo
-// ├── (-file, required)
-// ├── list
-// │   ├── today
-// │   └── overdue
-// │   └── (-tags)
-// │
-// └── task
-// 		├── add <text>
-// 		│   └── (-tags)
-// 		├── done <id>
-// 		└── remove <id> (-force, -all)
-
 func main() {
 	root := &cli.Command{
 		Name:      "todo",
@@ -65,7 +52,7 @@ func list() *cli.Command {
 			f.String("file", "", "path to the tasks file")
 			f.String("tags", "", "filter tasks by tags")
 		}),
-		FlagsMetadata: []cli.FlagMetadata{
+		FlagOptions: []cli.FlagOption{
 			{Name: "file", Required: true},
 		},
 		Exec: func(ctx context.Context, s *cli.State) error {
@@ -139,7 +126,7 @@ func task() *cli.Command {
 		Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 			f.String("file", "", "path to the tasks file")
 		}),
-		FlagsMetadata: []cli.FlagMetadata{
+		FlagOptions: []cli.FlagOption{
 			{Name: "file", Required: true},
 		},
 		ShortHelp: "Manage tasks",

@@ -38,7 +38,7 @@ func newTestState() testState {
 		Flags: FlagsFunc(func(fset *flag.FlagSet) {
 			fset.String("echo", "", "echo the message")
 		}),
-		FlagsMetadata: []FlagMetadata{
+		FlagOptions: []FlagOption{
 			{Name: "echo", Required: false}, // not required
 		},
 		Exec: exec,
@@ -49,7 +49,7 @@ func newTestState() testState {
 			fset.Bool("mandatory-flag", false, "mandatory flag")
 			fset.String("another-mandatory-flag", "", "another mandatory flag")
 		}),
-		FlagsMetadata: []FlagMetadata{
+		FlagOptions: []FlagOption{
 			{Name: "mandatory-flag", Required: true},
 			{Name: "another-mandatory-flag", Required: true},
 		},
@@ -362,13 +362,13 @@ func TestParse(t *testing.T) {
 		t.Parallel()
 		cmd := &Command{
 			Name: "root",
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "some-other-flag", Required: true},
 			},
 		}
 		err := Parse(cmd, nil)
 		require.Error(t, err)
-		require.ErrorContains(t, err, `flag metadata references unknown flag "some-other-flag"`)
+		require.ErrorContains(t, err, `flag option references unknown flag "some-other-flag"`)
 	})
 	t.Run("space in command name", func(t *testing.T) {
 		t.Parallel()
@@ -552,14 +552,14 @@ func TestParse(t *testing.T) {
 		require.NoError(t, err)
 		// Just ensure it doesn't crash and can parse the first match
 	})
-	t.Run("flag metadata for non-existent flag", func(t *testing.T) {
+	t.Run("flag option for non-existent flag", func(t *testing.T) {
 		t.Parallel()
 		cmd := &Command{
 			Name: "root",
 			Flags: FlagsFunc(func(fset *flag.FlagSet) {
 				fset.String("existing", "", "existing flag")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "existing", Required: true},
 				{Name: "nonexistent", Required: true},
 			},
@@ -567,7 +567,7 @@ func TestParse(t *testing.T) {
 		}
 		err := Parse(cmd, []string{"--existing=value"})
 		require.Error(t, err)
-		require.ErrorContains(t, err, `flag metadata references unknown flag "nonexistent"`)
+		require.ErrorContains(t, err, `flag option references unknown flag "nonexistent"`)
 	})
 	t.Run("args with special characters", func(t *testing.T) {
 		t.Parallel()
@@ -645,7 +645,7 @@ func TestParse(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.String("port", "8080", "port number")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "port", Required: true},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -665,7 +665,7 @@ func TestParse(t *testing.T) {
 				f.Bool("force", false, "force operation")
 				f.Bool("force-all", false, "force all")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "force", Required: true},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -705,7 +705,7 @@ func TestShortFlags(t *testing.T) {
 				f.Bool("verbose", false, "enable verbose output")
 				f.String("output", "", "output file")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "verbose", Short: "v"},
 				{Name: "output", Short: "o"},
 			},
@@ -724,7 +724,7 @@ func TestShortFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.Bool("verbose", false, "enable verbose output")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "verbose", Short: "v"},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -741,7 +741,7 @@ func TestShortFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.String("name", "", "the name")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "name", Short: "n"},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -751,7 +751,7 @@ func TestShortFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.Bool("verbose", false, "verbose")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "verbose", Short: "v"},
 			},
 			SubCommands: []*Command{child},
@@ -770,7 +770,7 @@ func TestShortFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.Int("count", 0, "number of items")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "count", Short: "c"},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -782,21 +782,21 @@ func TestShortFlags(t *testing.T) {
 		require.Equal(t, 42, GetFlag[int](cmd.state, "count"))
 	})
 
-	t.Run("metadata references unknown flag", func(t *testing.T) {
+	t.Run("option references unknown flag", func(t *testing.T) {
 		t.Parallel()
 		cmd := &Command{
 			Name: "root",
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.Bool("verbose", false, "enable verbose output")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "vrbose", Short: "v"}, // typo in Name
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
 		}
 		err := Parse(cmd, []string{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), `flag metadata references unknown flag "vrbose"`)
+		require.Contains(t, err.Error(), `flag option references unknown flag "vrbose"`)
 	})
 
 	t.Run("short alias must be single ASCII letter", func(t *testing.T) {
@@ -806,7 +806,7 @@ func TestShortFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.Bool("verbose", false, "enable verbose output")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "verbose", Short: "vv"},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -824,7 +824,7 @@ func TestShortFlags(t *testing.T) {
 				f.Bool("verbose", false, "enable verbose output")
 				f.Bool("version", false, "show version")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "verbose", Short: "v"},
 				{Name: "version", Short: "v"},
 			},
@@ -851,7 +851,7 @@ func TestLocalFlags(t *testing.T) {
 				f.Bool("version", false, "show version")
 				f.Bool("verbose", false, "enable verbose output")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "version", Local: true},
 			},
 			SubCommands: []*Command{child},
@@ -869,7 +869,7 @@ func TestLocalFlags(t *testing.T) {
 				f.Bool("version", false, "show version")
 				f.Bool("verbose", false, "enable verbose output")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "version", Local: true},
 			},
 			SubCommands: []*Command{{
@@ -890,7 +890,7 @@ func TestLocalFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.Bool("version", false, "show version")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "version", Local: true},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -911,7 +911,7 @@ func TestLocalFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.String("token", "", "auth token")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "token", Required: true, Local: true},
 			},
 			SubCommands: []*Command{child},
@@ -927,7 +927,7 @@ func TestLocalFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.String("token", "", "auth token")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "token", Required: true, Local: true},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -952,7 +952,7 @@ func TestLocalFlags(t *testing.T) {
 				f.Bool("version", false, "show version")
 				f.Bool("verbose", false, "enable verbose output")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "version", Local: true},
 			},
 			SubCommands: []*Command{child},
@@ -981,7 +981,7 @@ func TestLocalFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.Bool("version", false, "show version")
 			}),
-			FlagsMetadata: []FlagMetadata{
+			FlagOptions: []FlagOption{
 				{Name: "version", Short: "V", Local: true},
 			},
 			SubCommands: []*Command{child},

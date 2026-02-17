@@ -1,5 +1,7 @@
 # cli
 
+<img align="right" width="125" src=".github/pressly_cli_avatar.png">
+
 [![GoDoc](https://godoc.org/github.com/pressly/cli?status.svg)](https://pkg.go.dev/github.com/pressly/cli#pkg-index)
 [![CI](https://github.com/pressly/cli/actions/workflows/ci.yaml/badge.svg)](https://github.com/pressly/cli/actions/workflows/ci.yaml)
 
@@ -39,7 +41,7 @@ resolved command. For applications that need work between parsing and execution,
 
 ## Flags
 
-`FlagsFunc` is a convenience for defining flags inline. Use `FlagsMetadata` to extend the standard
+`FlagsFunc` is a convenience for defining flags inline. Use `FlagOptions` to extend the standard
 `flag` package with features like required flag enforcement and short aliases:
 
 ```go
@@ -47,7 +49,7 @@ Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 	f.Bool("verbose", false, "enable verbose output")
 	f.String("output", "", "output file")
 }),
-FlagsMetadata: []cli.FlagMetadata{
+FlagOptions: []cli.FlagOption{
 	{Name: "verbose", Short: "v"},
 	{Name: "output", Short: "o", Required: true},
 },

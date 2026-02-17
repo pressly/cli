@@ -39,9 +39,9 @@ type Command struct {
 	// Flags holds the command-specific flag definitions. Each command maintains its own flag set
 	// for parsing arguments.
 	Flags *flag.FlagSet
-	// FlagsMetadata is an optional list of flag information to extend the FlagSet with additional
-	// metadata. This is useful for tracking required flags.
-	FlagsMetadata []FlagMetadata
+	// FlagOptions is an optional list of flag options to extend the FlagSet with additional
+	// behavior. This is useful for tracking required flags, short aliases, and local flags.
+	FlagOptions []FlagOption
 
 	// SubCommands is a list of nested commands that exist under this command.
 	SubCommands []*Command
@@ -71,21 +71,21 @@ func (c *Command) terminal() *Command {
 	return c.state.path[len(c.state.path)-1]
 }
 
-// FlagMetadata holds additional metadata for a flag, such as whether it is required or has a short
+// FlagOption holds additional options for a flag, such as whether it is required or has a short
 // alias.
-type FlagMetadata struct {
+type FlagOption struct {
 	// Name is the flag's name. Must match the flag name in the flag set.
 	Name string
 
-	// Short is an optional single-character alias for the flag. When set, users can use either
-	// -v or -verbose (if Short is "v" and Name is "verbose"). Must be a single ASCII letter.
+	// Short is an optional single-character alias for the flag. When set, users can use either -v
+	// or -verbose (if Short is "v" and Name is "verbose"). Must be a single ASCII letter.
 	Short string
 
 	// Required indicates whether the flag is required.
 	Required bool
 
-	// Local indicates that the flag should not be inherited by child commands. When true, the
-	// flag is only available on the command that defines it.
+	// Local indicates that the flag should not be inherited by child commands. When true, the flag
+	// is only available on the command that defines it.
 	Local bool
 }
 

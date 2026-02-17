@@ -20,7 +20,7 @@ func main() {
 			// Add a flag to capitalize the input
 			f.Bool("c", false, "capitalize the input")
 		}),
-		FlagsMetadata: []cli.FlagMetadata{
+		FlagOptions: []cli.FlagOption{
 			{Name: "c", Required: true},
 		},
 		Exec: func(ctx context.Context, s *cli.State) error {

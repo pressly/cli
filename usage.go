@@ -96,7 +96,7 @@ func DefaultUsage(root *Command) string {
 				continue
 			}
 			isInherited := i < terminalIdx
-			metaMap := flagMetadataMap(cmd.FlagsMetadata)
+			metaMap := flagOptionMap(cmd.FlagOptions)
 			cmd.Flags.VisitAll(func(f *flag.Flag) {
 				// Skip local flags from ancestor commands — they don't appear in child help.
 				if isInherited {
@@ -120,7 +120,7 @@ func DefaultUsage(root *Command) string {
 		}
 	} else if terminalCmd.Flags != nil {
 		// Pre-parse fallback: show the command's own flags even without state.
-		metaMap := flagMetadataMap(terminalCmd.FlagsMetadata)
+		metaMap := flagOptionMap(terminalCmd.FlagOptions)
 		terminalCmd.Flags.VisitAll(func(f *flag.Flag) {
 			fi := flagInfo{
 				name:     "--" + f.Name,
@@ -219,10 +219,10 @@ func writeFlagSection(b *strings.Builder, flags []flagInfo, maxLen int, inherite
 	}
 }
 
-// flagMetadataMap builds a lookup map from flag name to its FlagMetadata.
-func flagMetadataMap(metadata []FlagMetadata) map[string]FlagMetadata {
-	m := make(map[string]FlagMetadata, len(metadata))
-	for _, fm := range metadata {
+// flagOptionMap builds a lookup map from flag name to its FlagOption.
+func flagOptionMap(options []FlagOption) map[string]FlagOption {
+	m := make(map[string]FlagOption, len(options))
+	for _, fm := range options {
 		m[fm.Name] = fm
 	}
 	return m
@@ -239,8 +239,8 @@ type flagInfo struct {
 }
 
 // displayName returns the flag name with optional short alias and type hint. When hasAnyShort is
-// true, flags without a short alias are padded to align with those that have one.
-// Examples: "-v, --verbose", "-o, --output string", "     --config string", "--debug".
+// true, flags without a short alias are padded to align with those that have one. Examples: "-v,
+// --verbose", "-o, --output string", "     --config string", "--debug".
 func (f flagInfo) displayName(hasAnyShort bool) string {
 	var name string
 	if f.short != "" {

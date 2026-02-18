@@ -7,6 +7,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- `flagtype.EnumDefault` constructor for enums with an initial default value
+
 ## [v0.6.0] - 2026-02-18
 
 ### Added

@@ -5,6 +5,7 @@
 // The following types are available:
 //   - [StringSlice] - repeatable flag that collects values into []string
 //   - [Enum] - restricts values to a predefined set, retrieved as string
+//   - [EnumDefault] - like [Enum] but with an initial default value
 //   - [StringMap] - repeatable flag that parses key=value pairs into map[string]string
 //   - [URL] - parses and validates a URL (must have scheme and host), retrieved as *url.URL
 //   - [Regexp] - compiles a regular expression, retrieved as *regexp.Regexp
@@ -14,6 +15,7 @@
 //	Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 //	    f.Var(flagtype.StringSlice(), "tag", "add a tag (repeatable)")
 //	    f.Var(flagtype.Enum("json", "yaml", "table"), "format", "output format")
+//	    f.Var(flagtype.EnumDefault("sql", []string{"sql", "go"}), "type", "migration type")
 //	    f.Var(flagtype.StringMap(), "label", "key=value pair (repeatable)")
 //	})
 //

@@ -77,6 +77,36 @@ func TestEnum(t *testing.T) {
 	})
 }
 
+func TestEnumDefault(t *testing.T) {
+	t.Parallel()
+
+	t.Run("uses default when flag not set", func(t *testing.T) {
+		t.Parallel()
+		fs := flag.NewFlagSet("test", flag.ContinueOnError)
+		fs.Var(EnumDefault("sql", []string{"sql", "go"}), "type", "")
+		err := fs.Parse([]string{})
+		require.NoError(t, err)
+		got := fs.Lookup("type").Value.(flag.Getter).Get().(string)
+		assert.Equal(t, "sql", got)
+	})
+	t.Run("override default", func(t *testing.T) {
+		t.Parallel()
+		fs := flag.NewFlagSet("test", flag.ContinueOnError)
+		fs.Var(EnumDefault("sql", []string{"sql", "go"}), "type", "")
+		err := fs.Parse([]string{"--type=go"})
+		require.NoError(t, err)
+		got := fs.Lookup("type").Value.(flag.Getter).Get().(string)
+		assert.Equal(t, "go", got)
+	})
+	t.Run("invalid default panics", func(t *testing.T) {
+		t.Parallel()
+		assert.PanicsWithValue(t,
+			`flagtype: default value "xml" is not in allowed values: sql, go`,
+			func() { EnumDefault("xml", []string{"sql", "go"}) },
+		)
+	})
+}
+
 func TestStringMap(t *testing.T) {
 	t.Parallel()
 

@@ -448,7 +448,7 @@ func TestWriteFlagSection(t *testing.T) {
 		require.Contains(t, output, "-v, --verbose")
 		require.Contains(t, output, "-o, --output string")
 		// Flags without short aliases are padded to align with double-dash
-		require.Contains(t, output, "     --config string")
+		require.Contains(t, output, "    --config string")
 	})
 
 	t.Run("no short flags means no padding", func(t *testing.T) {

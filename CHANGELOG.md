@@ -7,6 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- New `flagtype` package with common `flag.Value` implementations: `StringSlice`, `Enum`,
+  `StringMap`, `URL`, and `Regexp`
+
 ## [v0.5.0] - 2026-02-17
 
 ### Changed

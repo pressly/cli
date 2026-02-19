@@ -26,10 +26,6 @@ func DefaultUsage(root *Command) string {
 
 	var b strings.Builder
 
-	if terminalCmd.UsageFunc != nil {
-		return terminalCmd.UsageFunc(terminalCmd)
-	}
-
 	if terminalCmd.ShortHelp != "" {
 		b.WriteString(terminalCmd.ShortHelp)
 		b.WriteString("\n\n")

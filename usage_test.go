@@ -490,3 +490,27 @@ func TestWriteFlagSection(t *testing.T) {
 		require.NotContains(t, output, "Inherited Flags:")
 	})
 }
+
+func TestDefaultUsageComposableFromUsageFunc(t *testing.T) {
+	t.Parallel()
+
+	cmd := &Command{
+		Name:      "myapp",
+		ShortHelp: "my application",
+		Exec:      func(ctx context.Context, s *State) error { return nil },
+	}
+	cmd.UsageFunc = func(c *Command) string {
+		// Calling DefaultUsage from within UsageFunc should not recurse infinitely.
+		s := DefaultUsage(c)
+		return s + "\n\nExamples:\n  myapp --verbose"
+	}
+
+	err := Parse(cmd, []string{})
+	require.NoError(t, err)
+
+	output := cmd.UsageFunc(cmd)
+	require.Contains(t, output, "my application")
+	require.Contains(t, output, "Usage:")
+	require.Contains(t, output, "Examples:")
+	require.Contains(t, output, "myapp --verbose")
+}

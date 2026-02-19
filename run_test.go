@@ -228,4 +228,36 @@ func TestRun(t *testing.T) {
 			require.Equal(t, val, GetFlag[string](root.state, "text"))
 		}
 	})
+	t.Run("ParseAndRun uses UsageFunc on help", func(t *testing.T) {
+		t.Parallel()
+
+		root := &Command{
+			Name:      "myapp",
+			ShortHelp: "my application",
+			UsageFunc: func(c *Command) string {
+				return "custom usage output"
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+
+		stdout := bytes.NewBuffer(nil)
+		err := ParseAndRun(context.Background(), root, []string{"-help"}, &RunOptions{Stdout: stdout})
+		require.NoError(t, err)
+		require.Contains(t, stdout.String(), "custom usage output")
+	})
+	t.Run("ParseAndRun falls back to DefaultUsage without UsageFunc", func(t *testing.T) {
+		t.Parallel()
+
+		root := &Command{
+			Name:      "myapp",
+			ShortHelp: "my application",
+			Exec:      func(ctx context.Context, s *State) error { return nil },
+		}
+
+		stdout := bytes.NewBuffer(nil)
+		err := ParseAndRun(context.Background(), root, []string{"-help"}, &RunOptions{Stdout: stdout})
+		require.NoError(t, err)
+		require.Contains(t, stdout.String(), "my application")
+		require.Contains(t, stdout.String(), "Usage:")
+	})
 }

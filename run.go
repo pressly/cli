@@ -69,7 +69,12 @@ func ParseAndRun(ctx context.Context, root *Command, args []string, options *Run
 	if err := Parse(root, args); err != nil {
 		if errors.Is(err, ErrHelp) {
 			options = checkAndSetRunOptions(options)
-			_, _ = fmt.Fprintln(options.Stdout, DefaultUsage(root))
+			cmd := root.terminal()
+			if cmd.UsageFunc != nil {
+				_, _ = fmt.Fprintln(options.Stdout, cmd.UsageFunc(cmd))
+			} else {
+				_, _ = fmt.Fprintln(options.Stdout, DefaultUsage(root))
+			}
 			return nil
 		}
 		return err

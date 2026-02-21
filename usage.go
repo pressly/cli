@@ -239,8 +239,12 @@ type flagInfo struct {
 }
 
 // displayName returns the flag name with optional short alias and type hint. When hasAnyShort is
-// true, flags without a short alias are padded to align with those that have one. Examples: "-v,
-// --verbose", "-o, --output string", "    --config string", "--debug".
+// true, flags without a short alias are padded to align with those that have one. Examples:
+//
+//	"-v, --verbose"
+//	"-o, --output string"
+//	"    --config string"
+//	"    --debug"
 func (f flagInfo) displayName(hasAnyShort bool) string {
 	var name string
 	if f.short != "" {

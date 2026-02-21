@@ -32,7 +32,7 @@ func ParseToEnd(f *flag.FlagSet, arguments []string) error {
 		//
 		// If you want to treat an unknown flag as a positional argument. For example:
 		//
-		//  $ ./cmd --valid=true arg1 --unknown-flag=foo arg2
+		//	$ ./cmd --valid=true arg1 --unknown-flag=foo arg2
 		//
 		// Right now, this will trigger an error. But *some* users might want that unknown flag to
 		// be treated as a positional argument. It's trivial to add this behavior, by using VisitAll

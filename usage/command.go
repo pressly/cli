@@ -10,10 +10,7 @@ type Command struct {
 func Commands(heading string, commands []Command) Block {
 	items := make([]Item, 0, len(commands))
 	for _, cmd := range commands {
-		items = append(items, Item{
-			Name:    cmd.Name,
-			Summary: cmd.Summary,
-		})
+		items = append(items, Item(cmd))
 	}
 	return List(heading, items...)
 }

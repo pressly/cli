@@ -241,8 +241,8 @@ func TestParseAndRun(t *testing.T) {
 		root := &Command{
 			Name: "greet",
 			Exec: func(ctx context.Context, s *State) error {
-				fmt.Fprintln(s.Stdout, "hello")
-				return nil
+				_, err := fmt.Fprintln(s.Stdout, "hello")
+				return err
 			},
 		}
 

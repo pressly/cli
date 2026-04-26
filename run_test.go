@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"flag"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -227,5 +228,43 @@ func TestRun(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, val, GetFlag[string](root.state, "text"))
 		}
+	})
+}
+
+func TestParseAndRun(t *testing.T) {
+	t.Parallel()
+
+	t.Run("runs command", func(t *testing.T) {
+		t.Parallel()
+
+		stdout := bytes.NewBuffer(nil)
+		root := &Command{
+			Name: "greet",
+			Exec: func(ctx context.Context, s *State) error {
+				fmt.Fprintln(s.Stdout, "hello")
+				return nil
+			},
+		}
+
+		err := ParseAndRun(context.Background(), root, nil, &RunOptions{Stdout: stdout})
+		require.NoError(t, err)
+		require.Equal(t, "hello\n", stdout.String())
+	})
+
+	t.Run("prints help", func(t *testing.T) {
+		t.Parallel()
+
+		stdout := bytes.NewBuffer(nil)
+		root := &Command{
+			Name:      "greet",
+			ShortHelp: "Print a greeting",
+			Exec:      func(ctx context.Context, s *State) error { return nil },
+		}
+
+		err := ParseAndRun(context.Background(), root, []string{"--help"}, &RunOptions{Stdout: stdout})
+		require.NoError(t, err)
+		require.Contains(t, stdout.String(), "Print a greeting")
+		require.Contains(t, stdout.String(), "Usage:")
+		require.Contains(t, stdout.String(), "greet")
 	})
 }

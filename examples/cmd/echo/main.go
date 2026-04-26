@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -20,12 +19,12 @@ func main() {
 			// Add a flag to capitalize the input
 			f.Bool("c", false, "capitalize the input")
 		}),
-		FlagOptions: []cli.FlagOption{
+		FlagConfigs: []cli.FlagConfig{
 			{Name: "c", Required: true},
 		},
 		Exec: func(ctx context.Context, s *cli.State) error {
 			if len(s.Args) == 0 {
-				return errors.New("must provide text to echo, see --help")
+				return cli.UsageErrorf("must provide text to echo")
 			}
 			output := strings.Join(s.Args, " ")
 			// If -c flag is set, capitalize the output

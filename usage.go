@@ -7,87 +7,105 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/pressly/cli/pkg/textutil"
+	"github.com/pressly/cli/usage"
 )
 
-// defaultTerminalWidth is the assumed terminal width for wrapping help text.
-const defaultTerminalWidth = 80
-
-// DefaultUsage returns the default usage string for the command hierarchy. It is used when the
-// command does not provide a custom usage function. The usage string includes the command's short
-// help, usage pattern, available subcommands, and flags.
-func DefaultUsage(root *Command) string {
+// Help returns the help document for root's resolved command.
+//
+// Call Help after Parse when you want to render help yourself, or inside a Command.Help hook when
+// composing the default help document. ParseAndRun calls it automatically for --help and UsageErrorf
+// errors.
+func Help(root *Command) usage.Help {
 	if root == nil {
-		return ""
+		return nil
 	}
 
 	// Get terminal command from state
 	terminalCmd := root.terminal()
 
-	var b strings.Builder
-
-	if terminalCmd.UsageFunc != nil {
-		return terminalCmd.UsageFunc(terminalCmd)
-	}
+	var help usage.Help
 
 	if terminalCmd.ShortHelp != "" {
-		b.WriteString(terminalCmd.ShortHelp)
-		b.WriteString("\n\n")
+		help = append(help, usage.Text(terminalCmd.ShortHelp))
 	}
 
-	b.WriteString("Usage:\n")
+	flags := collectHelpFlags(root, terminalCmd)
+
+	var usageLine string
 	if terminalCmd.Usage != "" {
-		b.WriteString("  " + terminalCmd.Usage + "\n")
+		usageLine = terminalCmd.Usage
 	} else {
-		usage := terminalCmd.Name
+		usageLine = terminalCmd.Name
 		if root.state != nil && len(root.state.path) > 0 {
-			usage = getCommandPath(root.state.path)
+			usageLine = getCommandPath(root.state.path)
 		}
-		if terminalCmd.Flags != nil {
-			usage += " [flags]"
+		if len(flags) > 0 {
+			usageLine += " [flags]"
 		}
 		if len(terminalCmd.SubCommands) > 0 {
-			usage += " <command>"
+			usageLine += " <command>"
 		}
-		b.WriteString("  " + usage + "\n")
 	}
-	b.WriteString("\n")
+	help = append(help, usage.Lines("Usage:", usageLine))
 
 	if len(terminalCmd.SubCommands) > 0 {
-		b.WriteString("Available Commands:\n")
 		sortedCommands := slices.Clone(terminalCmd.SubCommands)
 		slices.SortFunc(sortedCommands, func(a, b *Command) int {
 			return cmp.Compare(a.Name, b.Name)
 		})
 
-		maxNameLen := 0
+		subcommands := make([]usage.Command, 0, len(sortedCommands))
 		for _, sub := range sortedCommands {
-			if len(sub.Name) > maxNameLen {
-				maxNameLen = len(sub.Name)
-			}
+			subcommands = append(subcommands, usage.Command{
+				Name:    sub.Name,
+				Summary: sub.ShortHelp,
+			})
 		}
-
-		nameWidth := maxNameLen + 4
-		wrapWidth := defaultTerminalWidth - nameWidth
-
-		for _, sub := range sortedCommands {
-			if sub.ShortHelp == "" {
-				fmt.Fprintf(&b, "  %s\n", sub.Name)
-				continue
-			}
-
-			lines := textutil.Wrap(sub.ShortHelp, wrapWidth)
-			padding := strings.Repeat(" ", maxNameLen-len(sub.Name)+4)
-			fmt.Fprintf(&b, "  %s%s%s\n", sub.Name, padding, lines[0])
-
-			indentPadding := strings.Repeat(" ", nameWidth+2)
-			for _, line := range lines[1:] {
-				fmt.Fprintf(&b, "%s%s\n", indentPadding, line)
-			}
-		}
-		b.WriteString("\n")
+		help = append(help, usage.Commands("Available Commands:", subcommands))
 	}
 
+	if len(flags) > 0 {
+		slices.SortFunc(flags, func(a, b flagInfo) int {
+			return cmp.Compare(a.name, b.name)
+		})
+
+		hasLocal := false
+		hasInherited := false
+		for _, f := range flags {
+			if f.inherited {
+				hasInherited = true
+			} else {
+				hasLocal = true
+			}
+		}
+
+		if hasLocal {
+			help = append(help, usage.Flags("Flags:", usageFlags(flags, false)))
+		}
+
+		if hasInherited {
+			help = append(help, usage.Flags("Inherited Flags:", usageFlags(flags, true)))
+		}
+	}
+
+	if len(terminalCmd.SubCommands) > 0 {
+		cmdName := terminalCmd.Name
+		if root.state != nil && len(root.state.path) > 0 {
+			cmdName = getCommandPath(root.state.path)
+		}
+		help = append(help, usage.Text(
+			fmt.Sprintf("Use \"%s [command] --help\" for more information about a command.", cmdName),
+		))
+	}
+
+	if terminalCmd.Help != nil {
+		help = terminalCmd.Help(terminalCmd, help)
+	}
+
+	return help
+}
+
+func collectHelpFlags(root, terminalCmd *Command) []flagInfo {
 	var flags []flagInfo
 	if root.state != nil && len(root.state.path) > 0 {
 		terminalIdx := len(root.state.path) - 1
@@ -96,7 +114,7 @@ func DefaultUsage(root *Command) string {
 				continue
 			}
 			isInherited := i < terminalIdx
-			metaMap := flagOptionMap(cmd.FlagOptions)
+			metaMap := flagConfigMap(cmd.FlagConfigs)
 			cmd.Flags.VisitAll(func(f *flag.Flag) {
 				// Skip local flags from ancestor commands — they don't appear in child help.
 				if isInherited {
@@ -120,7 +138,7 @@ func DefaultUsage(root *Command) string {
 		}
 	} else if terminalCmd.Flags != nil {
 		// Pre-parse fallback: show the command's own flags even without state.
-		metaMap := flagOptionMap(terminalCmd.FlagOptions)
+		metaMap := flagConfigMap(terminalCmd.FlagConfigs)
 		terminalCmd.Flags.VisitAll(func(f *flag.Flag) {
 			fi := flagInfo{
 				name:     "--" + f.Name,
@@ -135,93 +153,34 @@ func DefaultUsage(root *Command) string {
 			flags = append(flags, fi)
 		})
 	}
-
-	if len(flags) > 0 {
-		slices.SortFunc(flags, func(a, b flagInfo) int {
-			return cmp.Compare(a.name, b.name)
-		})
-
-		hasAnyShort := false
-		for _, f := range flags {
-			if f.short != "" {
-				hasAnyShort = true
-				break
-			}
-		}
-
-		maxFlagLen := 0
-		for _, f := range flags {
-			if n := len(f.displayName(hasAnyShort)); n > maxFlagLen {
-				maxFlagLen = n
-			}
-		}
-
-		hasLocal := false
-		hasInherited := false
-		for _, f := range flags {
-			if f.inherited {
-				hasInherited = true
-			} else {
-				hasLocal = true
-			}
-		}
-
-		if hasLocal {
-			b.WriteString("Flags:\n")
-			writeFlagSection(&b, flags, maxFlagLen, false, hasAnyShort)
-			b.WriteString("\n")
-		}
-
-		if hasInherited {
-			b.WriteString("Inherited Flags:\n")
-			writeFlagSection(&b, flags, maxFlagLen, true, hasAnyShort)
-			b.WriteString("\n")
-		}
-	}
-
-	if len(terminalCmd.SubCommands) > 0 {
-		cmdName := terminalCmd.Name
-		if root.state != nil && len(root.state.path) > 0 {
-			cmdName = getCommandPath(root.state.path)
-		}
-		fmt.Fprintf(&b, "Use \"%s [command] --help\" for more information about a command.\n", cmdName)
-	}
-
-	return strings.TrimRight(b.String(), "\n")
+	return flags
 }
 
-// writeFlagSection handles the formatting of flag descriptions
-func writeFlagSection(b *strings.Builder, flags []flagInfo, maxLen int, inherited, hasAnyShort bool) {
-	nameWidth := maxLen + 4
-	wrapWidth := defaultTerminalWidth - nameWidth
-
+func usageFlags(flags []flagInfo, inherited bool) []usage.Flag {
+	out := make([]usage.Flag, 0, len(flags))
 	for _, f := range flags {
 		if f.inherited != inherited {
 			continue
 		}
-
-		description := f.usage
-		if f.required {
-			description += " (required)"
-		} else if !isZeroDefault(f.defval, f.typeName) {
-			description += fmt.Sprintf(" (default: %s)", f.defval)
+		defval := ""
+		if !f.required && !isZeroDefault(f.defval, f.typeName) {
+			defval = f.defval
 		}
-
-		display := f.displayName(hasAnyShort)
-		lines := textutil.Wrap(description, wrapWidth)
-		padding := strings.Repeat(" ", maxLen-len(display)+4)
-		fmt.Fprintf(b, "  %s%s%s\n", display, padding, lines[0])
-
-		indentPadding := strings.Repeat(" ", nameWidth+2)
-		for _, line := range lines[1:] {
-			fmt.Fprintf(b, "%s%s\n", indentPadding, line)
-		}
+		out = append(out, usage.Flag{
+			Name:        strings.TrimPrefix(f.name, "--"),
+			Short:       f.short,
+			Placeholder: f.typeName,
+			Usage:       f.usage,
+			Default:     defval,
+			Required:    f.required,
+		})
 	}
+	return out
 }
 
-// flagOptionMap builds a lookup map from flag name to its FlagOption.
-func flagOptionMap(options []FlagOption) map[string]FlagOption {
-	m := make(map[string]FlagOption, len(options))
+// flagConfigMap builds a lookup map from flag name to its FlagConfig.
+func flagConfigMap(options []FlagConfig) map[string]FlagConfig {
+	m := make(map[string]FlagConfig, len(options))
 	for _, fm := range options {
 		m[fm.Name] = fm
 	}
@@ -236,24 +195,6 @@ type flagInfo struct {
 	typeName  string
 	inherited bool
 	required  bool
-}
-
-// displayName returns the flag name with optional short alias and type hint. When hasAnyShort is
-// true, flags without a short alias are padded to align with those that have one. Examples: "-v,
-// --verbose", "-o, --output string", "    --config string", "--debug".
-func (f flagInfo) displayName(hasAnyShort bool) string {
-	var name string
-	if f.short != "" {
-		name = "-" + f.short + ", " + f.name
-	} else if hasAnyShort {
-		name = "    " + f.name
-	} else {
-		name = f.name
-	}
-	if f.typeName == "" {
-		return name
-	}
-	return name + " " + f.typeName
 }
 
 // flagTypeName returns a short type name for a flag's value. Bool flags return "" since their type

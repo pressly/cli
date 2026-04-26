@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pressly/cli"
+	"github.com/pressly/cli/usage"
 )
 
 func main() {
@@ -23,13 +23,15 @@ func main() {
 			f.Bool("verbose", false, "enable verbose output")
 			f.Bool("version", false, "print the version")
 		}),
+		Help: func(c *cli.Command, h usage.Help) usage.Help {
+			return append(h, usage.Lines("Examples:", "todo list today --file tasks.json", "todo task add --file tasks.json \"write docs\""))
+		},
 		Exec: func(ctx context.Context, s *cli.State) error {
 			if cli.GetFlag[bool](s, "version") {
 				fmt.Fprintf(s.Stdout, "todo v1.0.0\n")
 				return nil
 			}
-			fmt.Fprintf(s.Stderr, "todo: subcommand required, use --help for more information\n")
-			return nil
+			return cli.UsageErrorf("subcommand required")
 		},
 		SubCommands: []*cli.Command{
 			list(),
@@ -52,12 +54,11 @@ func list() *cli.Command {
 			f.String("file", "", "path to the tasks file")
 			f.String("tags", "", "filter tasks by tags")
 		}),
-		FlagOptions: []cli.FlagOption{
+		FlagConfigs: []cli.FlagConfig{
 			{Name: "file", Required: true},
 		},
 		Exec: func(ctx context.Context, s *cli.State) error {
-			fmt.Fprintf(s.Stderr, "todo list: subcommand required, use --help for more information\n")
-			return nil
+			return cli.UsageErrorf("subcommand required")
 		},
 		SubCommands: []*cli.Command{
 			listToday(),
@@ -126,7 +127,7 @@ func task() *cli.Command {
 		Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 			f.String("file", "", "path to the tasks file")
 		}),
-		FlagOptions: []cli.FlagOption{
+		FlagConfigs: []cli.FlagConfig{
 			{Name: "file", Required: true},
 		},
 		ShortHelp: "Manage tasks",
@@ -184,7 +185,7 @@ func taskDone() *cli.Command {
 		ShortHelp: "Mark a task as done",
 		Exec: func(ctx context.Context, s *cli.State) error {
 			if len(s.Args) == 0 {
-				return errors.New("task ID required")
+				return cli.UsageErrorf("task ID required")
 			}
 			tasks, err := getTasksFromFile(s)
 			if err != nil {
@@ -216,7 +217,7 @@ func taskRemove() *cli.Command {
 				file  = cli.GetFlag[string](s, "file")
 			)
 			if len(s.Args) == 0 && !all {
-				return errors.New("task ID required, or use --all to remove all tasks")
+				return cli.UsageErrorf("task ID required, or use --all to remove all tasks")
 			}
 			if all {
 				if !force {

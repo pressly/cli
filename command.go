@@ -7,55 +7,64 @@ import (
 	"strings"
 
 	"github.com/pressly/cli/pkg/suggest"
+	"github.com/pressly/cli/usage"
 )
 
-// ErrHelp is returned by [Parse] when the -help or -h flag is invoked. It is identical to
-// [flag.ErrHelp] but re-exported here so callers using [Parse] and [Run] separately do not need to
-// import the flag package solely for error checking.
+// ErrHelp is returned by [Parse] when a help flag is present.
 //
-// Note: [ParseAndRun] handles this automatically and never surfaces ErrHelp to the caller.
+// [ParseAndRun] handles ErrHelp automatically by printing [Help] to stdout and returning nil.
+// Callers that use [Parse] and [Run] separately can check errors.Is(err, ErrHelp) and render help
+// themselves.
 var ErrHelp = flag.ErrHelp
 
-// Command represents a CLI command or subcommand within the application's command hierarchy.
+// Command defines one command in a CLI.
+//
+// A command can be the root command passed to [ParseAndRun], or a subcommand listed in
+// [Command.SubCommands]. Most programs define Name, optional help fields, optional flags, and Exec.
 type Command struct {
-	// Name is always a single word representing the command's name. It is used to identify the
-	// command in the command hierarchy and in help text.
+	// Name is the single word users type to select the command.
 	Name string
 
-	// Usage provides the command's full usage pattern.
+	// Usage overrides the generated usage line when the command needs a custom synopsis.
 	//
 	// Example: "cli todo list [flags]"
 	Usage string
 
-	// ShortHelp is a brief description of the command's purpose. It is displayed in the help text
-	// when the command is shown.
+	// ShortHelp describes the command in help output and parent command listings.
 	ShortHelp string
 
-	// UsageFunc is an optional function that can be used to generate a custom usage string for the
-	// command. It receives the current command and should return a string with the full usage
-	// pattern.
-	UsageFunc func(*Command) string
+	// Help customizes the command's help document.
+	//
+	// Leave Help nil for the built-in help. Set it when you want to append examples, reorder
+	// sections, or replace the document entirely. The function receives the command being shown and
+	// the built-in document.
+	Help func(*Command, usage.Help) usage.Help
 
-	// Flags holds the command-specific flag definitions. Each command maintains its own flag set
-	// for parsing arguments.
+	// Flags defines the command's flags using the standard library flag package.
 	Flags *flag.FlagSet
-	// FlagOptions is an optional list of flag options to extend the FlagSet with additional
-	// behavior. This is useful for tracking required flags, short aliases, and local flags.
-	FlagOptions []FlagOption
 
-	// SubCommands is a list of nested commands that exist under this command.
+	// FlagConfigs adds cli-specific behavior to flags already defined in Flags.
+	//
+	// Use it for required flags, short aliases, and flags that should not be inherited by
+	// subcommands.
+	FlagConfigs []FlagConfig
+
+	// SubCommands lists commands users can select after this command's name.
 	SubCommands []*Command
 
-	// Exec defines the command's execution logic. It receives the current application [State] and
-	// returns an error if execution fails. This function is called when [Run] is invoked on the
-	// command.
+	// Exec runs after parsing selects this command.
+	//
+	// Return [UsageErrorf] for invalid args or flag combinations so Run can print help. Return a
+	// normal error for operational failures.
 	Exec func(ctx context.Context, s *State) error
 
 	state *State
 }
 
-// Path returns the command chain from root to current command. It can only be called after the root
-// command has been parsed and the command hierarchy has been established.
+// Path returns the parsed command chain from root to this command.
+//
+// Call Path after [Parse] when command logic needs to inspect where the selected command sits in
+// the command tree.
 func (c *Command) Path() []*Command {
 	if c.state == nil {
 		return nil
@@ -71,26 +80,22 @@ func (c *Command) terminal() *Command {
 	return c.state.path[len(c.state.path)-1]
 }
 
-// FlagOption holds additional options for a flag, such as whether it is required or has a short
-// alias.
-type FlagOption struct {
-	// Name is the flag's name. Must match the flag name in the flag set.
+// FlagConfig adds cli-specific behavior to a flag defined in a command's FlagSet.
+type FlagConfig struct {
+	// Name is the flag's long name as registered in the command's FlagSet.
 	Name string
 
-	// Short is an optional single-character alias for the flag. When set, users can use either -v
-	// or -verbose (if Short is "v" and Name is "verbose"). Must be a single ASCII letter.
+	// Short lets users type a one-letter alias, such as -v for --verbose.
 	Short string
 
-	// Required indicates whether the flag is required.
+	// Required requires users to provide the flag explicitly.
 	Required bool
 
-	// Local indicates that the flag should not be inherited by child commands. When true, the flag
-	// is only available on the command that defines it.
+	// Local keeps the flag on this command instead of inheriting it into subcommands.
 	Local bool
 }
 
-// FlagsFunc is a helper function that creates a new [flag.FlagSet] and applies the given function
-// to it. Intended for use in command definitions to simplify flag setup. Example usage:
+// FlagsFunc creates a FlagSet inline for a command definition.
 //
 //	cmd.Flags = cli.FlagsFunc(func(f *flag.FlagSet) {
 //	    f.Bool("verbose", false, "enable verbose output")

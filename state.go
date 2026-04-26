@@ -1,37 +1,46 @@
 package cli
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 )
 
-// State holds command information during Exec function execution, allowing child commands to access
-// parent flags. Use [GetFlag] to get flag values across the command hierarchy.
+// State is passed to Exec with the parsed invocation context.
+//
+// Use Args for remaining positional arguments, Stdin/Stdout/Stderr for command I/O, Cmd for the
+// selected command, and [GetFlag] to read parsed flag values.
 type State struct {
-	// Args contains the remaining arguments after flag parsing.
+	// Args contains positional arguments left after command and flag parsing.
 	Args []string
 
-	// Standard I/O streams.
+	// Stdin, Stdout, and Stderr are the streams command code should use instead of package-level
+	// os.Stdin, os.Stdout, and os.Stderr.
 	Stdin          io.Reader
 	Stdout, Stderr io.Writer
+
+	// Cmd is the command selected by parsing.
+	Cmd *Command
 
 	// path is the command hierarchy from the root command to the current command. The root command
 	// is the first element in the path, and the terminal command is the last element.
 	path []*Command
 }
 
-// GetFlag retrieves a flag value by name from the command hierarchy. It first checks the current
-// command's flags, then walks up through parent commands.
+// GetFlag reads a parsed flag value from State.
 //
-// If the flag doesn't exist or if the type doesn't match the requested type T an error will be
-// raised in the Run function. This is an internal error and should never happen in normal usage.
-// This ensures flag-related programming errors are caught early during development.
+// Call GetFlag from Exec with the same Go type used to define the flag. It checks the selected
+// command first, then inherited parent flags. A missing flag or wrong type is treated as a
+// programming error and returned from [Run].
 //
 //	verbose := GetFlag[bool](state, "verbose")
 //	count := GetFlag[int](state, "count")
 //	path := GetFlag[string](state, "path")
 func GetFlag[T any](s *State, name string) T {
+	if s == nil {
+		panic(&internalError{err: errors.New("state is nil")})
+	}
 	// Try to find the flag in each command's flag set, starting from the current command
 	for i := len(s.path) - 1; i >= 0; i-- {
 		cmd := s.path[i]

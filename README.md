@@ -41,7 +41,7 @@ resolved command. For applications that need work between parsing and execution,
 
 ## Flags
 
-`FlagsFunc` is a convenience for defining flags inline. Use `FlagOptions` to extend the standard
+`FlagsFunc` is a convenience for defining flags inline. Use `FlagConfigs` to extend the standard
 `flag` package with features like required flag enforcement and short aliases:
 
 ```go
@@ -49,7 +49,7 @@ Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 	f.Bool("verbose", false, "enable verbose output")
 	f.String("output", "", "output file")
 }),
-FlagOptions: []cli.FlagOption{
+FlagConfigs: []cli.FlagConfig{
 	{Name: "verbose", Short: "v"},
 	{Name: "output", Short: "o", Required: true},
 },
@@ -95,8 +95,31 @@ example](examples/cmd/task/).
 
 ## Help
 
-Help text is generated automatically and displayed when `--help` is passed. To customize it, set the
-`UsageFunc` field on a command.
+Help text is generated automatically and displayed when `--help` is passed. To customize it, set
+the `Help` field on a command:
+
+```go
+Help: func(c *cli.Command, h usage.Help) usage.Help {
+	return append(h, usage.Lines("Examples:", "greet margo"))
+},
+```
+
+Inside `Exec`, `State` exposes the resolved command as `Cmd`, so usage errors can stay explicit:
+
+```go
+Exec: func(ctx context.Context, s *cli.State) error {
+	if len(s.Args) == 0 {
+		return cli.UsageErrorf("must supply a name")
+	}
+	fmt.Fprintf(s.Stdout, "hello, %s\n", s.Args[0])
+	return nil
+},
+```
+
+`UsageErrorf` is opt-in: `Run` prints the resolved command's help to stderr before returning the
+underlying error. Normal errors are returned unchanged.
+
+For command-aware errors, use `s.Cmd.Path()` to get the resolved command path.
 
 ## Usage Syntax
 

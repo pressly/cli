@@ -13,12 +13,11 @@ import (
 	"github.com/pressly/cli/xflag"
 )
 
-// Parse traverses the command hierarchy and parses arguments. It returns an error if parsing fails
-// at any point.
+// Parse resolves a command and parses its flags without running it.
 //
-// This function is the main entry point for parsing command-line arguments and should be called
-// with the root command and the arguments to parse, typically os.Args[1:]. Once parsing is
-// complete, the root command is ready to be executed with the [Run] function.
+// Most programs should use [ParseAndRun]. Use Parse directly when you need to inspect parsed flags
+// or initialize resources before calling [Run]. If the user asks for help, Parse returns [ErrHelp]
+// after resolving the command so [Help] can render the right command document.
 func Parse(root *Command, args []string) error {
 	if root == nil {
 		return fmt.Errorf("failed to parse: root command is nil")
@@ -27,15 +26,17 @@ func Parse(root *Command, args []string) error {
 		return fmt.Errorf("failed to parse: %w", err)
 	}
 
-	// Initialize or update root state
-	if root.state == nil {
-		root.state = &State{
-			path: []*Command{root},
-		}
-	} else {
-		// Reset command path but preserve other state
-		root.state.path = []*Command{root}
+	// Initialize or update root state. Clear command pointers across the tree first so stale
+	// subcommands from a previous parse do not retain the newly resolved path.
+	state := root.state
+	clearCommandState(root)
+	if state == nil {
+		state = &State{}
 	}
+	root.state = state
+	root.state.Args = nil
+	root.state.Cmd = nil
+	root.state.path = []*Command{root}
 
 	argsToParse, remainingArgs := splitAtDelimiter(args)
 
@@ -43,6 +44,7 @@ func Parse(root *Command, args []string) error {
 	if err != nil {
 		return err
 	}
+	root.state.Cmd = current
 	current.Flags.Usage = func() { /* suppress default usage */ }
 
 	// Check for help flags after resolving the correct command
@@ -106,11 +108,11 @@ func resolveCommandPath(root *Command, argsToParse []string) (*Command, error) {
 
 			// Check if this flag expects a value across all commands in the chain (not just the
 			// current command), since flags from ancestor commands are inherited and can appear
-			// anywhere. Also check short flag aliases from FlagOptions.
+			// anywhere. Also check short flag aliases from FlagConfigs.
 			name := strings.TrimLeft(arg, "-")
 			skipValue := false
 			for _, cmd := range root.state.path {
-				localFlags := localFlagSet(cmd.FlagOptions)
+				localFlags := localFlagSet(cmd.FlagConfigs)
 				// Skip local flags on ancestor commands (any command already in the path is an
 				// ancestor of the not-yet-resolved terminal command).
 				if localFlags[name] {
@@ -120,7 +122,7 @@ func resolveCommandPath(root *Command, argsToParse []string) (*Command, error) {
 				f := cmd.Flags.Lookup(name)
 				// If not found, check if it's a short alias.
 				if f == nil {
-					for _, fm := range cmd.FlagOptions {
+					for _, fm := range cmd.FlagConfigs {
 						if fm.Short == name {
 							if localFlags[fm.Name] {
 								break
@@ -150,6 +152,7 @@ func resolveCommandPath(root *Command, argsToParse []string) (*Command, error) {
 		if len(current.SubCommands) > 0 {
 			if sub := current.findSubCommand(arg); sub != nil {
 				root.state.path = append(slices.Clone(root.state.path), sub)
+				sub.state = root.state
 				if sub.Flags == nil {
 					sub.Flags = flag.NewFlagSet(sub.Name, flag.ContinueOnError)
 				}
@@ -164,9 +167,19 @@ func resolveCommandPath(root *Command, argsToParse []string) (*Command, error) {
 	return current, nil
 }
 
+func clearCommandState(cmd *Command) {
+	if cmd == nil {
+		return
+	}
+	cmd.state = nil
+	for _, sub := range cmd.SubCommands {
+		clearCommandState(sub)
+	}
+}
+
 // combineFlags merges flags from the command path into a single FlagSet. Flags are added in reverse
 // order (deepest command first) so that child flags take precedence over parent flags. Short flag
-// aliases from FlagOptions are also registered, sharing the same Value as their long counterpart.
+// aliases from FlagConfigs are also registered, sharing the same Value as their long counterpart.
 func combineFlags(path []*Command) *flag.FlagSet {
 	combined := flag.NewFlagSet(path[0].Name, flag.ContinueOnError)
 	combined.SetOutput(io.Discard)
@@ -176,8 +189,8 @@ func combineFlags(path []*Command) *flag.FlagSet {
 		if cmd.Flags == nil {
 			continue
 		}
-		localFlags := localFlagSet(cmd.FlagOptions)
-		shortMap := shortFlagMap(cmd.FlagOptions)
+		localFlags := localFlagSet(cmd.FlagConfigs)
+		shortMap := shortFlagMap(cmd.FlagConfigs)
 		isAncestor := i < terminalIdx
 		cmd.Flags.VisitAll(func(f *flag.Flag) {
 			// Skip local flags from ancestor commands — they are not inherited.
@@ -198,8 +211,8 @@ func combineFlags(path []*Command) *flag.FlagSet {
 	return combined
 }
 
-// localFlagSet builds a set of flag names that are marked as local in FlagOptions.
-func localFlagSet(options []FlagOption) map[string]bool {
+// localFlagSet builds a set of flag names that are marked as local in FlagConfigs.
+func localFlagSet(options []FlagConfig) map[string]bool {
 	m := make(map[string]bool, len(options))
 	for _, fm := range options {
 		if fm.Local {
@@ -209,8 +222,8 @@ func localFlagSet(options []FlagOption) map[string]bool {
 	return m
 }
 
-// shortFlagMap builds a map from long flag name to short alias from FlagOptions.
-func shortFlagMap(options []FlagOption) map[string]string {
+// shortFlagMap builds a map from long flag name to short alias from FlagConfigs.
+func shortFlagMap(options []FlagConfig) map[string]string {
 	m := make(map[string]string, len(options))
 	for _, fm := range options {
 		if fm.Short != "" {
@@ -220,7 +233,7 @@ func shortFlagMap(options []FlagOption) map[string]string {
 	return m
 }
 
-// checkRequiredFlags verifies that all flags marked as required in FlagOptions were explicitly set
+// checkRequiredFlags verifies that all flags marked as required in FlagConfigs were explicitly set
 // during parsing.
 func checkRequiredFlags(path []*Command, combined *flag.FlagSet) error {
 	// Build a set of flags that were explicitly set during parsing. Visit (unlike VisitAll) only
@@ -233,7 +246,7 @@ func checkRequiredFlags(path []*Command, combined *flag.FlagSet) error {
 	terminalIdx := len(path) - 1
 	var missingFlags []string
 	for i, cmd := range path {
-		for _, fo := range cmd.FlagOptions {
+		for _, fo := range cmd.FlagConfigs {
 			if !fo.Required {
 				continue
 			}
@@ -312,7 +325,7 @@ func validateCommands(root *Command, path []string) error {
 		return fmt.Errorf("command [%s]: %w", strings.Join(quoted, ", "), err)
 	}
 
-	if err := validateFlagOptions(root); err != nil {
+	if err := validateFlagConfigs(root); err != nil {
 		quoted := make([]string, len(currentPath))
 		for i, p := range currentPath {
 			quoted[i] = strconv.Quote(p)
@@ -328,17 +341,17 @@ func validateCommands(root *Command, path []string) error {
 	return nil
 }
 
-// validateFlagOptions checks that each FlagOption entry refers to a flag that exists in the
+// validateFlagConfigs checks that each FlagConfig entry refers to a flag that exists in the
 // command's FlagSet, that Short aliases are single ASCII letters, and that no two entries share the
 // same Short alias.
-func validateFlagOptions(cmd *Command) error {
-	if len(cmd.FlagOptions) == 0 {
+func validateFlagConfigs(cmd *Command) error {
+	if len(cmd.FlagConfigs) == 0 {
 		return nil
 	}
 	seenShorts := make(map[string]string) // short -> flag name
-	for _, fm := range cmd.FlagOptions {
+	for _, fm := range cmd.FlagConfigs {
 		if cmd.Flags == nil || cmd.Flags.Lookup(fm.Name) == nil {
-			return fmt.Errorf("flag option references unknown flag %q", fm.Name)
+			return fmt.Errorf("flag config references unknown flag %q", fm.Name)
 		}
 		if fm.Short == "" {
 			continue

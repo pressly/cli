@@ -181,6 +181,8 @@ func TestCommandPath(t *testing.T) {
 		require.Len(t, path, 2)
 		require.Equal(t, "root", path[0].Name)
 		require.Equal(t, "child2", path[1].Name)
+		require.Nil(t, child1.Path())
+		require.Equal(t, path, child2.Path())
 	})
 
 	t.Run("command with complex names in path", func(t *testing.T) {

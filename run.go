@@ -13,20 +13,21 @@ import (
 	"sync"
 )
 
-// RunOptions specifies options for running a command.
+// RunOptions overrides the standard streams used by [Run] and [ParseAndRun].
+//
+// Leave it nil for normal CLI programs. Provide it in tests or embedded applications that need to
+// capture output or supply custom input.
 type RunOptions struct {
-	// Stdin, Stdout, and Stderr are the standard input, output, and error streams for the command.
-	// If any of these are nil, the command will use the default streams ([os.Stdin], [os.Stdout],
-	// and [os.Stderr], respectively).
+	// Stdin, Stdout, and Stderr replace os.Stdin, os.Stdout, and os.Stderr when set.
 	Stdin          io.Reader
 	Stdout, Stderr io.Writer
 }
 
-// Run executes the current command. It returns an error if the command has not been parsed or if
-// the command has no execution function.
+// Run executes the command selected by [Parse].
 //
-// The options parameter may be nil, in which case default values are used. See [RunOptions] for
-// more details.
+// Use Run only with the split [Parse]/Run flow. [ParseAndRun] is the usual entry point. If Exec
+// returns [UsageErrorf], Run prints [Help] for the selected command to stderr and returns the
+// underlying error.
 func Run(ctx context.Context, root *Command, options *RunOptions) error {
 	if ctx == nil {
 		ctx = context.Background()
@@ -49,27 +50,23 @@ func Run(ctx context.Context, root *Command, options *RunOptions) error {
 	return run(ctx, cmd, root.state)
 }
 
-// ParseAndRun is a convenience function that combines [Parse] and [Run] into a single call. It
-// parses the command hierarchy, handles help flags automatically (printing usage to stdout and
-// returning nil), and then executes the resolved command.
+// ParseAndRun parses args and runs the selected command.
 //
-// This is the recommended entry point for most CLI applications:
+// Use ParseAndRun as the normal entry point for CLI applications. It handles help flags by printing
+// [Help] to stdout and returning nil, then runs Exec for the selected command.
 //
 //	if err := cli.ParseAndRun(ctx, root, os.Args[1:], nil); err != nil {
 //	    fmt.Fprintf(os.Stderr, "error: %v\n", err)
 //	    os.Exit(1)
 //	}
 //
-// The options parameter may be nil, in which case default values are used. See [RunOptions] for
-// more details.
-//
-// For applications that need to perform work between parsing and execution (e.g., initializing
-// resources based on parsed flags), use [Parse] and [Run] separately.
+// Use [Parse] and [Run] separately when you need work between parsing and execution, such as
+// initializing resources from parsed flags.
 func ParseAndRun(ctx context.Context, root *Command, args []string, options *RunOptions) error {
 	if err := Parse(root, args); err != nil {
 		if errors.Is(err, ErrHelp) {
 			options = checkAndSetRunOptions(options)
-			_, _ = fmt.Fprintln(options.Stdout, DefaultUsage(root))
+			_, _ = fmt.Fprintln(options.Stdout, Help(root))
 			return nil
 		}
 		return err
@@ -94,7 +91,13 @@ func run(ctx context.Context, cmd *Command, state *State) (retErr error) {
 			}
 		}
 	}()
-	return cmd.Exec(ctx, state)
+	err := cmd.Exec(ctx, state)
+	var usageErr *UsageError
+	if errors.As(err, &usageErr) {
+		_, _ = fmt.Fprintln(state.Stderr, Help(state.Cmd))
+		return usageErr.Unwrap()
+	}
+	return err
 }
 
 func updateState(s *State, opt *RunOptions) {

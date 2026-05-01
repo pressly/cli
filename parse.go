@@ -17,7 +17,7 @@ import (
 //
 // Most programs should use [ParseAndRun]. Use Parse directly when you need to inspect parsed flags
 // or initialize resources before calling [Run]. If the user asks for help, Parse returns [ErrHelp]
-// after resolving the command so [Help] can render the right command document.
+// after resolving the command so [Help] can render the right help text.
 func Parse(root *Command, args []string) error {
 	if root == nil {
 		return fmt.Errorf("failed to parse: root command is nil")

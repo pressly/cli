@@ -10,29 +10,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - `flagtype.EnumDefault` constructor for enums with an initial default value
-- New `usage` package with composable help document blocks: `Text`, `Lines`, `List`, `Flags`, and
-  `Commands`
-- `Help` function for rendering the resolved command help document
+- New optional `usage` package with composable help document blocks: `Document`, `Text`, `Lines`,
+  `List`, `Flags`, and `Commands`
+- `usage.New` and `usage.Help` for building or rendering default help from a command
+- `Help` function for rendering the resolved command help text
 - `Cmd` field on `State` for accessing the terminal command selected by parsing
 - `UsageErrorf` for opt-in usage errors; `Run` prints command help to stderr before returning the
   underlying error
 
 ### Changed
 
-- **BREAKING**: Replace `Command.UsageFunc` with `Command.Help`, which receives the built-in
-  `usage.Help` document and returns the customized document
-- **BREAKING**: Custom help now composes `usage.Help` documents instead of string-concatenating
-  default usage text
+- **BREAKING**: Replace `Command.UsageFunc` with `Command.Help`, which returns the full help string
+  for a command
+- **BREAKING**: `Help` now returns a string instead of a structured help document; use
+  `usage.New(cmd)` when you want composable help blocks
+- **BREAKING**: Rename the structured `usage.Help` document type to `usage.Document`
 - **BREAKING**: Rename `FlagOption` to `FlagConfig` and `Command.FlagOptions` to
   `Command.FlagConfigs`
-- Help output is now built through the `usage` package while preserving the default automatic
-  `--help` behavior
+- Help output keeps the default automatic `--help` behavior while making the richer `usage` package
+  optional
 
 ### Removed
 
-- **BREAKING**: Remove `DefaultUsage` and `Usage`; use `Help(cmd).String()` for direct rendering
-- **BREAKING**: Remove usage-related `State` helpers: `Command`, `CommandPath`, `Usage`, and
-  `UsageErrorf`; use `State.Cmd`, `Command.Path`, `Help`, and top-level `UsageErrorf` instead
+- **BREAKING**: Remove `DefaultUsage` and `Usage`; use `Help(cmd)` for direct rendering
 
 ## [v0.6.0] - 2026-02-18
 

@@ -961,7 +961,7 @@ func TestLocalFlags(t *testing.T) {
 		err := Parse(root, []string{"child", "--help"})
 		require.ErrorIs(t, err, flag.ErrHelp)
 
-		usage := Help(root).String()
+		usage := Help(root)
 		// --verbose should appear in inherited flags (not local)
 		assert.Contains(t, usage, "--verbose")
 		// --version should NOT appear (local to root, not inherited)

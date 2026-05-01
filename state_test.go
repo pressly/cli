@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pressly/cli/usage"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -86,11 +85,11 @@ func TestStateCommandContext(t *testing.T) {
 			SubCommands: []*Command{
 				{
 					Name: "child",
-					Help: func(c *Command, h usage.Help) usage.Help {
-						return append(h, usage.Lines("Examples:", "root child file.txt"))
+					Help: func(c *Command) string {
+						return "Usage:\n  root child\n\nExamples:\n  root child file.txt"
 					},
 					Exec: func(ctx context.Context, s *State) error {
-						output := Help(s.Cmd).String()
+						output := Help(s.Cmd)
 						require.Contains(t, output, "Examples:")
 						require.Contains(t, output, "root child file.txt")
 						return nil

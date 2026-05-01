@@ -23,8 +23,10 @@ func main() {
 			f.Bool("verbose", false, "enable verbose output")
 			f.Bool("version", false, "print the version")
 		}),
-		Help: func(c *cli.Command, h usage.Help) usage.Help {
-			return append(h, usage.Lines("Examples:", "todo list today --file tasks.json", "todo task add --file tasks.json \"write docs\""))
+		Help: func(c *cli.Command) string {
+			doc := usage.New(c)
+			doc = append(doc, usage.Lines("Examples:", "todo list today --file tasks.json", "todo task add --file tasks.json \"write docs\""))
+			return doc.String()
 		},
 		Exec: func(ctx context.Context, s *cli.State) error {
 			if cli.GetFlag[bool](s, "version") {

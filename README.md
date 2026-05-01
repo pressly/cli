@@ -96,12 +96,32 @@ example](examples/cmd/task/).
 ## Help
 
 Help text is generated automatically and displayed when `--help` is passed. To customize it, set
-the `Help` field on a command:
+the `Help` field on a command. It returns a string, so you can replace help entirely:
 
 ```go
-Help: func(c *cli.Command, h usage.Help) usage.Help {
-	return append(h, usage.Lines("Examples:", "greet margo"))
+Help: func(c *cli.Command) string {
+	return "Usage:\n  greet <name>\n"
 },
+```
+
+If you want to keep the default layout and add to it, use the optional `usage` package:
+
+```go
+Help: func(c *cli.Command) string {
+	doc := usage.New(c)
+	doc = append(doc, usage.Lines("Examples:", "greet margo"))
+	return doc.String()
+},
+```
+
+That renders as:
+
+```text
+Usage:
+  greet
+
+Examples:
+  greet margo
 ```
 
 Inside `Exec`, `State` exposes the resolved command as `Cmd`, so usage errors can stay explicit:

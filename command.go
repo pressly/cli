@@ -7,7 +7,6 @@ import (
 	"strings"
 
 	"github.com/pressly/cli/pkg/suggest"
-	"github.com/pressly/cli/usage"
 )
 
 // ErrHelp is returned by [Parse] when a help flag is present.
@@ -33,12 +32,11 @@ type Command struct {
 	// ShortHelp describes the command in help output and parent command listings.
 	ShortHelp string
 
-	// Help customizes the command's help document.
+	// Help customizes the command's help text.
 	//
-	// Leave Help nil for the built-in help. Set it when you want to append examples, reorder
-	// sections, or replace the document entirely. The function receives the command being shown and
-	// the built-in document.
-	Help func(*Command, usage.Help) usage.Help
+	// Leave Help nil for the built-in help. Set it to replace help entirely, or use the usage
+	// package when you want to compose help from structured blocks.
+	Help func(*Command) string
 
 	// Flags defines the command's flags using the standard library flag package.
 	Flags *flag.FlagSet

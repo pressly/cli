@@ -1,32 +1,39 @@
 package cli
 
 import (
+	"bytes"
 	"cmp"
 	"flag"
 	"fmt"
 	"slices"
 	"strings"
-
-	"github.com/pressly/cli/usage"
+	"text/tabwriter"
 )
 
-// Help returns the help document for root's resolved command.
+// Help returns help text for root's resolved command.
 //
-// Call Help after Parse when you want to render help yourself, or inside a Command.Help hook when
-// composing the default help document. ParseAndRun calls it automatically for --help and UsageErrorf
-// errors.
-func Help(root *Command) usage.Help {
+// Call Help after Parse when you want to render help yourself. ParseAndRun calls it automatically
+// for --help, and Run calls it automatically for UsageErrorf errors.
+func Help(root *Command) string {
 	if root == nil {
-		return nil
+		return ""
 	}
 
-	// Get terminal command from state
+	terminalCmd := root.terminal()
+	if terminalCmd.Help != nil {
+		return strings.TrimRight(terminalCmd.Help(terminalCmd), "\n")
+	}
+
+	return defaultHelp(root)
+}
+
+func defaultHelp(root *Command) string {
 	terminalCmd := root.terminal()
 
-	var help usage.Help
+	var blocks []string
 
 	if terminalCmd.ShortHelp != "" {
-		help = append(help, usage.Text(terminalCmd.ShortHelp))
+		blocks = append(blocks, terminalCmd.ShortHelp)
 	}
 
 	flags := collectHelpFlags(root, terminalCmd)
@@ -46,7 +53,7 @@ func Help(root *Command) usage.Help {
 			usageLine += " <command>"
 		}
 	}
-	help = append(help, usage.Lines("Usage:", usageLine))
+	blocks = append(blocks, renderLines("Usage:", usageLine))
 
 	if len(terminalCmd.SubCommands) > 0 {
 		sortedCommands := slices.Clone(terminalCmd.SubCommands)
@@ -54,14 +61,14 @@ func Help(root *Command) usage.Help {
 			return cmp.Compare(a.Name, b.Name)
 		})
 
-		subcommands := make([]usage.Command, 0, len(sortedCommands))
+		subcommands := make([]helpItem, 0, len(sortedCommands))
 		for _, sub := range sortedCommands {
-			subcommands = append(subcommands, usage.Command{
+			subcommands = append(subcommands, helpItem{
 				Name:    sub.Name,
 				Summary: sub.ShortHelp,
 			})
 		}
-		help = append(help, usage.Commands("Available Commands:", subcommands))
+		blocks = append(blocks, renderItems("Available Commands:", subcommands))
 	}
 
 	if len(flags) > 0 {
@@ -80,11 +87,11 @@ func Help(root *Command) usage.Help {
 		}
 
 		if hasLocal {
-			help = append(help, usage.Flags("Flags:", usageFlags(flags, false)))
+			blocks = append(blocks, renderFlags("Flags:", usageFlags(flags, false)))
 		}
 
 		if hasInherited {
-			help = append(help, usage.Flags("Inherited Flags:", usageFlags(flags, true)))
+			blocks = append(blocks, renderFlags("Inherited Flags:", usageFlags(flags, true)))
 		}
 	}
 
@@ -93,16 +100,12 @@ func Help(root *Command) usage.Help {
 		if root.state != nil && len(root.state.path) > 0 {
 			cmdName = getCommandPath(root.state.path)
 		}
-		help = append(help, usage.Text(
+		blocks = append(blocks,
 			fmt.Sprintf("Use \"%s [command] --help\" for more information about a command.", cmdName),
-		))
+		)
 	}
 
-	if terminalCmd.Help != nil {
-		help = terminalCmd.Help(terminalCmd, help)
-	}
-
-	return help
+	return strings.Join(blocks, "\n\n")
 }
 
 func collectHelpFlags(root, terminalCmd *Command) []flagInfo {
@@ -156,8 +159,8 @@ func collectHelpFlags(root, terminalCmd *Command) []flagInfo {
 	return flags
 }
 
-func usageFlags(flags []flagInfo, inherited bool) []usage.Flag {
-	out := make([]usage.Flag, 0, len(flags))
+func usageFlags(flags []flagInfo, inherited bool) []helpFlag {
+	out := make([]helpFlag, 0, len(flags))
 	for _, f := range flags {
 		if f.inherited != inherited {
 			continue
@@ -166,7 +169,7 @@ func usageFlags(flags []flagInfo, inherited bool) []usage.Flag {
 		if !f.required && !isZeroDefault(f.defval, f.typeName) {
 			defval = f.defval
 		}
-		out = append(out, usage.Flag{
+		out = append(out, helpFlag{
 			Name:        strings.TrimPrefix(f.name, "--"),
 			Short:       f.short,
 			Placeholder: f.typeName,
@@ -176,6 +179,94 @@ func usageFlags(flags []flagInfo, inherited bool) []usage.Flag {
 		})
 	}
 	return out
+}
+
+func renderLines(heading string, lines ...string) string {
+	var b strings.Builder
+	b.WriteString(heading)
+	for _, line := range lines {
+		b.WriteString("\n  ")
+		b.WriteString(line)
+	}
+	return b.String()
+}
+
+func renderFlags(heading string, flags []helpFlag) string {
+	hasShort := false
+	for _, f := range flags {
+		if f.Short != "" {
+			hasShort = true
+			break
+		}
+	}
+	items := make([]helpItem, 0, len(flags))
+	for _, f := range flags {
+		items = append(items, helpItem{
+			Name:    f.spec(hasShort),
+			Summary: f.description(),
+		})
+	}
+	return renderItems(heading, items)
+}
+
+func renderItems(heading string, items []helpItem) string {
+	var out strings.Builder
+	out.WriteString(heading)
+	out.WriteByte('\n')
+
+	var rows bytes.Buffer
+	tw := tabwriter.NewWriter(&rows, 0, 0, 4, ' ', 0)
+	for _, item := range items {
+		if item.Summary == "" {
+			_, _ = fmt.Fprintf(tw, "  %s\n", item.Name)
+			continue
+		}
+		_, _ = fmt.Fprintf(tw, "  %s\t%s\n", item.Name, item.Summary)
+	}
+	_ = tw.Flush()
+	out.Write(rows.Bytes())
+
+	return strings.TrimRight(out.String(), "\n")
+}
+
+type helpItem struct {
+	Name    string
+	Summary string
+}
+
+type helpFlag struct {
+	Name        string
+	Short       string
+	Placeholder string
+	Usage       string
+	Default     string
+	Required    bool
+}
+
+func (f helpFlag) spec(padShort bool) string {
+	var name string
+	if f.Short != "" {
+		name = "-" + f.Short + ", --" + f.Name
+	} else if padShort {
+		name = "    --" + f.Name
+	} else {
+		name = "--" + f.Name
+	}
+	if f.Placeholder == "" {
+		return name
+	}
+	return name + " " + f.Placeholder
+}
+
+func (f helpFlag) description() string {
+	description := f.Usage
+	if f.Required {
+		return description + " (required)"
+	}
+	if f.Default != "" {
+		return fmt.Sprintf("%s (default: %s)", description, f.Default)
+	}
+	return description
 }
 
 // flagConfigMap builds a lookup map from flag name to its FlagConfig.

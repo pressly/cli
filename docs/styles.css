@@ -267,6 +267,19 @@ html[data-theme="dark"] #theme-toggle .i-moon { display: block; }
 /* Content */
 .content { padding: 1.75rem 1.25rem 6rem; }
 
+/* Off-screen but readable to screen readers and search engines. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 h1, h2, h3 {
   font-weight: 600;
   letter-spacing: -0.015em;

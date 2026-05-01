@@ -265,7 +265,7 @@ html[data-theme="dark"] #theme-toggle .i-moon { display: block; }
 }
 
 /* Content */
-.content { padding: 4rem 1.25rem 6rem; }
+.content { padding: 1.75rem 1.25rem 6rem; }
 
 h1, h2, h3 {
   font-weight: 600;

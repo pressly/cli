@@ -1,0 +1,553 @@
+:root {
+  --fg:        #1a1a1a;
+  --fg-muted:  #6b6b6b;
+  --bg:        #fdfdfc;
+  --bg-code:   #f4f3f0;
+  --bg-soft:   #f8f7f4;
+  --rule:      #e6e3dd;
+  --accent:    #c2410c;
+  --link:      #1f6feb;
+  --mono:      ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+  --sans:      ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+
+  /* Syntax tokens - light. */
+  --tk-comment:  #708090;
+  --tk-punct:    #6e7781;
+  --tk-keyword:  #0550ae;
+  --tk-string:   #4d6b1f;
+  --tk-number:   #6f42c1;
+  --tk-function: #b14a78;
+  --tk-operator: #9a6e3a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fg:       #e8e6e3;
+    --fg-muted: #9a958c;
+    --bg:       #14110f;
+    --bg-code:  #1d1a17;
+    --bg-soft:  #1a1715;
+    --rule:     #2a2622;
+    --accent:   #f97316;
+    --link:     #6cabf1;
+
+    --tk-comment:  #7d8590;
+    --tk-punct:    #c9d1d9;
+    --tk-keyword:  #ff7b72;
+    --tk-string:   #a5d6ff;
+    --tk-number:   #79c0ff;
+    --tk-function: #d2a8ff;
+    --tk-operator: #ff7b72;
+  }
+}
+
+/* Explicit user choice (set via the toggle) overrides the OS preference. */
+html[data-theme="light"] {
+  --fg:        #1a1a1a;
+  --fg-muted:  #6b6b6b;
+  --bg:        #fdfdfc;
+  --bg-code:   #f4f3f0;
+  --bg-soft:   #f8f7f4;
+  --rule:      #e6e3dd;
+  --accent:    #c2410c;
+  --link:      #1f6feb;
+
+  --tk-comment:  #708090;
+  --tk-punct:    #6e7781;
+  --tk-keyword:  #0550ae;
+  --tk-string:   #4d6b1f;
+  --tk-number:   #6f42c1;
+  --tk-function: #b14a78;
+  --tk-operator: #9a6e3a;
+}
+html[data-theme="dark"] {
+  --fg:       #e8e6e3;
+  --fg-muted: #9a958c;
+  --bg:       #14110f;
+  --bg-code:  #1d1a17;
+  --bg-soft:  #1a1715;
+  --rule:     #2a2622;
+  --accent:   #f97316;
+  --link:     #6cabf1;
+
+  --tk-comment:  #7d8590;
+  --tk-punct:    #c9d1d9;
+  --tk-keyword:  #ff7b72;
+  --tk-string:   #a5d6ff;
+  --tk-number:   #79c0ff;
+  --tk-function: #d2a8ff;
+  --tk-operator: #ff7b72;
+}
+html { color-scheme: light dark; }
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: var(--sans);
+  font-size: 17px;
+  line-height: 1.75;
+  color: var(--fg);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.wrap {
+  max-width: 740px;
+  margin: 0 auto;
+  padding: 0 1.25rem;
+}
+
+/* Single content column. Prose, headings, and code blocks share the same
+   max-width so their left and right edges line up. Long lines inside code
+   blocks scroll horizontally inside the box rather than expanding it. */
+.content > section > p,
+.content > section > h2,
+.content > section > h3,
+.content > section > ul,
+.content > section > ol,
+.content > section > pre,
+.intro > p,
+.intro > pre {
+  max-width: 740px;
+}
+
+
+/* Header */
+.site-header {
+  border-bottom: 1px solid var(--rule);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: saturate(180%) blur(6px);
+}
+.site-header .wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding-top: 0.85rem;
+  padding-bottom: 0.85rem;
+}
+.brand {
+  font-family: var(--mono);
+  font-size: 0.95rem;
+  color: var(--fg);
+  text-decoration: none;
+  letter-spacing: -0.01em;
+}
+.brand strong { color: var(--accent); font-weight: 600; }
+.nav {
+  display: flex;
+  gap: 1.1rem;
+  font-size: 0.9rem;
+  flex-wrap: wrap;
+  /* Stretch to the full width of the header column so margin-left:auto
+     on .nav-sep can push the chrome group to the right edge. */
+  align-self: stretch;
+}
+.nav a {
+  color: var(--fg-muted);
+  text-decoration: none;
+}
+.nav a:hover { color: var(--fg); }
+.nav-sep {
+  width: 1px;
+  height: 0.9em;
+  background: var(--rule);
+  display: inline-block;
+  align-self: center;
+  /* Pushes the separator (and everything after it: godoc, github, theme
+     toggle) to the right edge of the nav row. */
+  margin-left: auto;
+}
+@media (max-width: 640px) {
+  .nav-sep { display: none; }
+}
+
+/* Dropdown menu in the nav. Hover/focus opens it; on touch devices the
+   tiny JS click handler in app.js toggles the .open class. */
+.nav-menu { position: relative; display: inline-flex; }
+.nav-menu-trigger {
+  position: relative;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--fg-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+.nav-menu-trigger:hover { color: var(--fg); text-decoration: none; }
+/* Invisible bridge that spans the gap between trigger and dropdown so the
+   :hover state stays alive when the cursor moves down to the items. */
+.nav-menu-trigger::after {
+  content: "";
+  position: absolute;
+  left: -0.25rem;
+  right: -0.25rem;
+  top: 100%;
+  height: 0.7rem;
+}
+.nav-menu-trigger .caret {
+  font-size: 0.7em;
+  line-height: 1;
+  position: relative;
+  top: 1px;
+  transition: transform 0.15s ease;
+}
+.nav-menu:hover .caret,
+.nav-menu:focus-within .caret { transform: translateY(1px); }
+
+.nav-menu-items {
+  position: absolute;
+  right: 0;
+  top: 100%;
+  margin-top: 0.5rem;
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  padding: 0.25rem 0;
+  min-width: 11rem;
+  display: none;
+  z-index: 20;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+.nav-menu:hover .nav-menu-items,
+.nav-menu:focus-within .nav-menu-items {
+  display: block;
+}
+.nav-menu-items a {
+  display: block;
+  padding: 0.4rem 1rem;
+  color: var(--fg-muted);
+  font-size: 0.9rem;
+  white-space: nowrap;
+}
+.nav-menu-items a:hover {
+  color: var(--fg);
+  background: var(--bg-soft);
+}
+
+/* Theme toggle. Sits in the nav, shows a sun in light mode and a moon in
+   dark mode. Click to flip; preference is stored in localStorage. */
+#theme-toggle {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  color: var(--fg-muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.4rem;
+  height: 1.4rem;
+  border-radius: 4px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+#theme-toggle:hover { color: var(--fg); background: var(--bg-soft); }
+#theme-toggle svg { width: 1rem; height: 1rem; display: block; }
+
+/* Default (light or auto): show sun, hide moon.
+   Dark (explicit or system, with no explicit light override): swap. */
+#theme-toggle .i-moon { display: none; }
+html[data-theme="dark"] #theme-toggle .i-sun { display: none; }
+html[data-theme="dark"] #theme-toggle .i-moon { display: block; }
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) #theme-toggle .i-sun { display: none; }
+  html:not([data-theme="light"]) #theme-toggle .i-moon { display: block; }
+}
+
+/* Content */
+.content { padding: 4rem 1.25rem 6rem; }
+
+h1, h2, h3 {
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+}
+h1 { font-size: 2.1rem; margin: 0 0 0.6rem; }
+h2 { font-size: 1.55rem; margin: 2.75rem 0 0.6rem; }
+h3 { font-size: 1.1rem; margin: 2rem 0 0.4rem; }
+
+/* Anything we anchor-link to gets enough top margin that the sticky
+   header (now two rows: brand + nav) doesn't cover it after the jump. */
+[id] { scroll-margin-top: 7rem; }
+
+p { margin: 1rem 0; }
+p.lede { font-size: 1.18rem; line-height: 1.6; color: var(--fg); margin-top: 0.5rem; }
+p.muted, .muted { color: var(--fg-muted); font-size: 0.9rem; }
+
+a { color: var(--link); text-decoration: underline; text-underline-offset: 2px; }
+a:hover { text-decoration: underline; }
+
+/* Inline <code> inside a link should still read as a link. Drop the box and
+   inherit the link color and underline. */
+a > code, a code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  border-radius: 0;
+}
+
+/* Chrome-y links (header, footer, breadcrumbs, brand) stay clean. */
+.brand,
+.nav a,
+.nav-menu-items a,
+.site-footer a {
+  text-decoration: none;
+}
+.site-footer a:hover { text-decoration: underline; }
+
+/* Sections are separated by the natural top margin on the next h2. The
+   <hr /> in the markup stays semantic but doesn't take any space. */
+hr {
+  border: 0;
+  margin: 0;
+  height: 0;
+  visibility: hidden;
+}
+
+/* Plain muted line of facts under the lede on the home page. */
+.facts {
+  margin: 0.4rem 0 1.2rem;
+  font-family: var(--mono);
+  font-size: 0.8rem;
+  color: var(--fg-muted);
+}
+
+/* Soft inline pointer in the hero, pointing readers at the rationale. */
+.intro .aside {
+  margin-top: 0.9rem;
+  font-size: 0.92rem;
+}
+.intro .aside a {
+  color: var(--fg-muted);
+  text-decoration: none;
+  border-bottom: 1px dotted currentColor;
+}
+.intro .aside a:hover {
+  color: var(--link);
+}
+
+
+ul, ol { padding-left: 1.25rem; }
+li { margin: 0.25rem 0; }
+
+/* Code */
+code {
+  font-family: var(--mono);
+  font-size: 0.875em;
+  background: var(--bg-code);
+  padding: 0.12em 0.35em;
+  border-radius: 3px;
+  color: var(--fg);
+  /* Inline code is one unbreakable token so things like "cmd build foo
+     --verbose" don't split awkwardly at internal spaces or hyphens. */
+  white-space: nowrap;
+}
+pre {
+  position: relative;
+  background: var(--bg-code);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  font-size: 0.86rem;
+  line-height: 1.7;
+  margin: 1.25rem 0 1.5rem;
+}
+
+/* Copy button. Lives in the top-right of every <pre>. Subtle by default,
+   clearer on hover, and briefly switches to "copied" after a click. */
+.copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  background: var(--bg);
+  border: 1px solid var(--rule);
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+  font-family: var(--sans);
+  font-size: 0.72rem;
+  letter-spacing: 0.02em;
+  color: var(--fg-muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+pre:hover .copy-btn,
+pre:focus-within .copy-btn,
+.copy-btn:focus-visible {
+  opacity: 1;
+}
+.copy-btn:hover {
+  color: var(--fg);
+  border-color: var(--fg-muted);
+}
+.copy-btn.copied {
+  color: var(--accent);
+  border-color: var(--accent);
+  opacity: 1;
+}
+pre code {
+  background: transparent;
+  padding: 0;
+  border-radius: 0;
+  font-size: inherit;
+  /* Pre dictates whitespace, not the inline rule above. */
+  white-space: pre;
+}
+
+/* Footer */
+.site-footer {
+  margin-top: 4rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--rule);
+  color: var(--fg-muted);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+/* Prism token colors. We drop Prism's bundled themes and drive everything
+   from CSS variables so that the user's theme choice (system or toggle)
+   always produces a readable palette. */
+pre[class*="language-"],
+code[class*="language-"] {
+  color: var(--fg);
+  background: transparent;
+  text-shadow: none;
+  font-family: var(--mono);
+  tab-size: 4;
+  hyphens: none;
+}
+.token.comment,
+.token.prolog,
+.token.cdata,
+.token.doctype { color: var(--tk-comment); font-style: italic; }
+.token.punctuation { color: var(--tk-punct); background: transparent; }
+.token.namespace { opacity: 0.7; }
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol,
+.token.deleted { color: var(--tk-number); }
+.token.string,
+.token.char,
+.token.attr-value,
+.token.regex,
+.token.inserted { color: var(--tk-string); }
+.token.atrule,
+.token.keyword,
+.token.important { color: var(--tk-keyword); font-weight: 500; }
+.token.builtin,
+.token.class-name,
+.token.function { color: var(--tk-function); }
+.token.operator,
+.token.entity,
+.token.url,
+.token.variable,
+.token.tag,
+.token.selector,
+.token.attr-name,
+.token.property { color: var(--tk-operator); background: transparent; }
+
+/* Package index block (pkg.go.dev style). Quiet bg-soft surface, no
+   border - just enough contrast to read as a reference card. */
+.api-index {
+  background: var(--bg-soft);
+  border: 0;
+  padding: 0.85rem 1rem;
+  font-size: 0.82rem;
+}
+.api-index .idx-h {
+  color: var(--fg-muted);
+  font-size: 0.78em;
+  letter-spacing: 0.1em;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+.api-index a {
+  color: var(--fg);
+  text-decoration: none;
+  border-bottom: 1px dotted transparent;
+}
+.api-index a:hover {
+  color: var(--link);
+  border-bottom-color: currentColor;
+}
+
+/* Heading anchors. Sit in the left margin, invisible until you hover the
+   heading. Truly subtle - no inline label, no shift in layout - the only
+   feedback on click is a brief colour change while the URL updates. */
+h2, h3 { position: relative; }
+.heading-anchor {
+  position: absolute;
+  left: -1.4em;
+  top: 0;
+  bottom: 0;
+  width: 1.4em;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-right: 0.35em;
+  color: var(--fg-muted);
+  font-weight: normal;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.2s ease, color 0.15s ease;
+  font-size: 0.85em;
+}
+h2:hover > .heading-anchor,
+h3:hover > .heading-anchor,
+.heading-anchor:focus-visible { opacity: 0.4; }
+.heading-anchor:hover { color: var(--link); opacity: 1 !important; }
+.heading-anchor.copied { color: var(--accent); opacity: 1 !important; }
+
+/* On touch devices (no hover) and narrow viewports (no left margin to
+   live in), inline the anchor next to the heading and keep it always
+   subtly visible. Tap to copy. */
+@media (hover: none), (max-width: 760px) {
+  .heading-anchor {
+    position: static;
+    display: inline;
+    width: auto;
+    height: auto;
+    padding: 0;
+    margin-left: 0.45em;
+    align-items: unset;
+    justify-content: unset;
+    opacity: 0.4;
+  }
+}
+
+/* Changelog renders markdown -- give it a little polish */
+#changelog-content h2 {
+  font-size: 1rem;
+  margin-top: 1.5rem;
+  border: 0;
+  padding: 0;
+  font-family: var(--mono);
+  color: var(--accent);
+}
+#changelog-content h3 {
+  font-size: 0.95rem;
+  margin-top: 1rem;
+  color: var(--fg-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+#changelog-content ul { padding-left: 1.25rem; }
+#changelog-content li { margin: 0.2rem 0; }
+#changelog-content hr { margin: 1.5rem 0; }
+/* Hide the link-reference list at the bottom of CHANGELOG.md */
+#changelog-content > p:has(a[href*="github.com/pressly/cli/compare"]),
+#changelog-content > p:has(a[href*="github.com/pressly/cli/releases"]) {
+  display: none;
+}

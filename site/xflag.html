@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>xflag - pressly/cli</title>
+<meta name="description" content="A drop-in replacement for flag.Parse that accepts flags anywhere in the argument list, not just before the first positional argument." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E%E2%96%B6%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="styles.css" />
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("theme");
+      if (t === "dark" || t === "light") {
+        document.documentElement.setAttribute("data-theme", t);
+      }
+    } catch (_) {}
+  })();
+</script>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./">pressly/<strong>cli</strong></a>
+    <nav class="nav">
+      <a href="./#quickstart">Quick start</a>
+      <a href="./#api">API</a>
+      <a href="./#examples">Examples</a>
+      <div class="nav-menu">
+        <a class="nav-menu-trigger" href="./#subpackages" aria-haspopup="true">Subpackages <span class="caret" aria-hidden="true">&#x25BC;</span></a>
+        <div class="nav-menu-items" role="menu">
+          <a href="flagtype.html" role="menuitem">flagtype</a>
+          <a href="graceful.html" role="menuitem">graceful</a>
+          <a href="xflag.html" role="menuitem">xflag</a>
+        </div>
+      </div>
+      <a href="./#why">But why?</a>
+      <span class="nav-sep" aria-hidden="true"></span>
+      <a href="https://pkg.go.dev/github.com/pressly/cli/xflag" target="_blank" rel="noopener">godoc</a>
+      <a href="https://github.com/pressly/cli/tree/main/xflag" target="_blank" rel="noopener">github</a>
+      <button id="theme-toggle" type="button" aria-label="toggle dark mode" title="toggle dark mode">
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap content" id="top">
+
+  <section class="intro">
+    <h1>xflag</h1>
+    <p class="lede">
+      A drop-in replacement for <code>flag.Parse</code> that accepts flags anywhere in the argument
+      list. Used internally by <code>cli</code> to drive its parser, and usable on its own with a
+      stdlib <code>*flag.FlagSet</code>.
+    </p>
+<pre><code class="language-go">import "github.com/pressly/cli/xflag"</code></pre>
+  </section>
+
+  <hr />
+
+  <section>
+    <h2 id="index">At a glance</h2>
+    <p>One function. The link goes to <a href="https://pkg.go.dev/github.com/pressly/cli/xflag" target="_blank" rel="noopener">godoc</a> for the canonical reference.</p>
+<pre class="api-index"><code><span class="idx-h">FUNCTIONS</span>
+    <a href="https://pkg.go.dev/github.com/pressly/cli/xflag#ParseToEnd" target="_blank" rel="noopener">func ParseToEnd(f *flag.FlagSet, arguments []string) error</a></code></pre>
+  </section>
+
+  <hr />
+
+  <section>
+    <h2 id="usage">Usage</h2>
+    <p>Define flags on a stdlib <code>*flag.FlagSet</code>, then call <code>xflag.ParseToEnd</code> instead of <code>f.Parse</code>:</p>
+<pre><code class="language-go">f := flag.NewFlagSet("greet", flag.ContinueOnError)
+verbose := f.Bool("verbose", false, "enable verbose output")
+name    := f.String("name", "world", "who to greet")
+
+if err := xflag.ParseToEnd(f, os.Args[1:]); err != nil {
+    log.Fatal(err)
+}
+
+fmt.Println(*verbose, *name, f.Args())</code></pre>
+    <p>All three of these invocations parse the same way:</p>
+<pre><code class="language-bash">greet --verbose --name=alice arg1 arg2
+greet arg1 --verbose arg2 --name=alice
+greet arg1 arg2 --verbose --name=alice</code></pre>
+    <p>Stdlib's <code>flag.Parse</code> would stop at <code>arg1</code> in the second and third forms, treating <code>--verbose</code> and <code>--name</code> as positional arguments.</p>
+  </section>
+
+  <hr />
+
+  <section>
+    <h2 id="why">Why this exists</h2>
+    <p>Go's <code>flag</code> package stops parsing at the first non-flag argument. That behavior is well-known (see <a href="https://github.com/golang/go/issues/4513" target="_blank" rel="noopener">#4513</a> and <a href="https://github.com/golang/go/issues/63138" target="_blank" rel="noopener">#63138</a>) and unlikely to change. Most CLI users today expect Docker- and Git-style behavior where flags can appear anywhere. <code>xflag.ParseToEnd</code> bridges that gap without giving up the standard library's <code>flag.FlagSet</code>.</p>
+  </section>
+
+  <footer class="site-footer">
+    <p>
+      <a href="./">back to cli</a>
+      &middot;
+      <a href="https://pkg.go.dev/github.com/pressly/cli/xflag" target="_blank" rel="noopener">pkg.go.dev/xflag</a>
+    </p>
+  </footer>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>

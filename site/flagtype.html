@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>flagtype - pressly/cli</title>
+<meta name="description" content="Common flag.Value implementations for pressly/cli: StringSlice, Enum, EnumDefault, StringMap, URL, Regexp." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E%E2%96%B6%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="styles.css" />
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("theme");
+      if (t === "dark" || t === "light") {
+        document.documentElement.setAttribute("data-theme", t);
+      }
+    } catch (_) {}
+  })();
+</script>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./">pressly/<strong>cli</strong></a>
+    <nav class="nav">
+      <a href="./#quickstart">Quick start</a>
+      <a href="./#api">API</a>
+      <a href="./#examples">Examples</a>
+      <div class="nav-menu">
+        <a class="nav-menu-trigger" href="./#subpackages" aria-haspopup="true">Subpackages <span class="caret" aria-hidden="true">&#x25BC;</span></a>
+        <div class="nav-menu-items" role="menu">
+          <a href="flagtype.html" role="menuitem">flagtype</a>
+          <a href="graceful.html" role="menuitem">graceful</a>
+          <a href="xflag.html" role="menuitem">xflag</a>
+        </div>
+      </div>
+      <a href="./#why">But why?</a>
+      <span class="nav-sep" aria-hidden="true"></span>
+      <a href="https://pkg.go.dev/github.com/pressly/cli/flagtype" target="_blank" rel="noopener">godoc</a>
+      <a href="https://github.com/pressly/cli/tree/main/flagtype" target="_blank" rel="noopener">github</a>
+      <button id="theme-toggle" type="button" aria-label="toggle dark mode" title="toggle dark mode">
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap content" id="top">
+
+  <section class="intro">
+    <h1>flagtype</h1>
+    <p class="lede">
+      Common <code>flag.Value</code> implementations for <code>pressly/cli</code>. Each constructor
+      returns a value you register with <code>f.Var()</code>; storage is internal, and values are
+      retrieved through <code>cli.GetFlag[T]</code>.
+    </p>
+<pre><code class="language-go">import "github.com/pressly/cli/flagtype"</code></pre>
+  </section>
+
+  <hr />
+
+  <section>
+    <h2 id="index">At a glance</h2>
+    <p>Each symbol links to its <a href="https://pkg.go.dev/github.com/pressly/cli/flagtype" target="_blank" rel="noopener">godoc</a> entry, the canonical reference.</p>
+<pre class="api-index"><code><span class="idx-h">FUNCTIONS</span>
+    <a href="https://pkg.go.dev/github.com/pressly/cli/flagtype#StringSlice" target="_blank" rel="noopener">func StringSlice() flag.Value</a>
+    <a href="https://pkg.go.dev/github.com/pressly/cli/flagtype#Enum" target="_blank" rel="noopener">func Enum(allowed ...string) flag.Value</a>
+    <a href="https://pkg.go.dev/github.com/pressly/cli/flagtype#EnumDefault" target="_blank" rel="noopener">func EnumDefault(defaultVal string, allowed []string) flag.Value</a>
+    <a href="https://pkg.go.dev/github.com/pressly/cli/flagtype#StringMap" target="_blank" rel="noopener">func StringMap() flag.Value</a>
+    <a href="https://pkg.go.dev/github.com/pressly/cli/flagtype#URL" target="_blank" rel="noopener">func URL() flag.Value</a>
+    <a href="https://pkg.go.dev/github.com/pressly/cli/flagtype#Regexp" target="_blank" rel="noopener">func Regexp() flag.Value</a></code></pre>
+  </section>
+
+  <hr />
+
+  <section>
+    <h2 id="patterns">Patterns</h2>
+    <p>Register a value with <code>f.Var()</code>, retrieve it with the matching <code>cli.GetFlag[T]</code>. The full set, in one place:</p>
+<pre><code class="language-go">cmd := &amp;cli.Command{
+    Name: "fetch",
+    Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
+        f.Var(flagtype.StringSlice(),
+            "tag", "add a tag (repeatable)")
+
+        f.Var(flagtype.Enum("json", "yaml", "table"),
+            "format", "output format")
+
+        f.Var(flagtype.EnumDefault("sql", []string{"sql", "go"}),
+            "type", "migration type")
+
+        f.Var(flagtype.StringMap(),
+            "label", "key=value (repeatable)")
+
+        f.Var(flagtype.URL(),
+            "endpoint", "API endpoint")
+
+        f.Var(flagtype.Regexp(),
+            "match", "filter pattern")
+    }),
+    Exec: func(ctx context.Context, state *cli.State) error {
+        tags     := cli.GetFlag[[]string](state, "tag")
+        format   := cli.GetFlag[string](state, "format")
+        migType  := cli.GetFlag[string](state, "type")
+        labels   := cli.GetFlag[map[string]string](state, "label")
+        endpoint := cli.GetFlag[*url.URL](state, "endpoint")
+        re       := cli.GetFlag[*regexp.Regexp](state, "match")
+
+        _, _, _, _, _, _ = tags, format, migType, labels, endpoint, re
+        return nil
+    },
+}</code></pre>
+<pre><code>$ fetch --help
+Usage:
+  fetch [flags]
+
+Flags:
+  --endpoint url       API endpoint
+  --format enum        output format
+  --label stringMap    key=value (repeatable)
+  --match regexp       filter pattern
+  --tag stringSlice    add a tag (repeatable)
+  --type enum          migration type (default: sql)</code></pre>
+    <p>Each flagtype carries a type hint that shows up in the auto-generated help. Repeatable flags (<code>StringSlice</code>, <code>StringMap</code>) collect values across multiple appearances on the command line:</p>
+<pre><code class="language-bash">fetch --tag a --tag b --label env=prod --label tier=api</code></pre>
+  </section>
+
+  <footer class="site-footer">
+    <p>
+      <a href="./">back to cli</a>
+      &middot;
+      <a href="https://pkg.go.dev/github.com/pressly/cli/flagtype" target="_blank" rel="noopener">pkg.go.dev/flagtype</a>
+    </p>
+  </footer>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>

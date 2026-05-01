@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>graceful - pressly/cli</title>
+<meta name="description" content="Run long-lived processes with predictable shutdown semantics: signal handling, context cancellation, timeouts, and standardized exit codes." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Ctext y='14' font-size='14'%3E%E2%96%B6%3C/text%3E%3C/svg%3E" />
+<link rel="stylesheet" href="styles.css" />
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem("theme");
+      if (t === "dark" || t === "light") {
+        document.documentElement.setAttribute("data-theme", t);
+      }
+    } catch (_) {}
+  })();
+</script>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./">pressly/<strong>cli</strong></a>
+    <nav class="nav">
+      <a href="./#quickstart">Quick start</a>
+      <a href="./#api">API</a>
+      <a href="./#examples">Examples</a>
+      <div class="nav-menu">
+        <a class="nav-menu-trigger" href="./#subpackages" aria-haspopup="true">Subpackages <span class="caret" aria-hidden="true">&#x25BC;</span></a>
+        <div class="nav-menu-items" role="menu">
+          <a href="flagtype.html" role="menuitem">flagtype</a>
+          <a href="graceful.html" role="menuitem">graceful</a>
+          <a href="xflag.html" role="menuitem">xflag</a>
+        </div>
+      </div>
+      <a href="./#why">But why?</a>
+      <span class="nav-sep" aria-hidden="true"></span>
+      <a href="https://pkg.go.dev/github.com/pressly/cli/graceful" target="_blank" rel="noopener">godoc</a>
+      <a href="https://github.com/pressly/cli/tree/main/graceful" target="_blank" rel="noopener">github</a>
+      <button id="theme-toggle" type="button" aria-label="toggle dark mode" title="toggle dark mode">
+        <svg class="i-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>
+        <svg class="i-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap content" id="top">
+
+  <section class="intro">
+    <h1>graceful</h1>
+    <p class="lede">
+      Run a long-lived function with signal handling, context cancellation, optional timeouts, and
+      standardized exit codes. Independent of the <code>cli</code> package; useful for servers,
+      workers, and batch jobs.
+    </p>
+<pre><code class="language-go">import "github.com/pressly/cli/graceful"</code></pre>
+  </section>
+
+  <hr />
+
+  <section>
+    <h2 id="index">At a glance</h2>
+    <p>Each symbol links to its <a href="https://pkg.go.dev/github.com/pressly/cli/graceful" target="_blank" rel="noopener">godoc</a> entry, the canonical reference.</p>
+<pre class="api-index"><code><span class="idx-h">FUNCTIONS</span>
+    <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#Run" target="_blank" rel="noopener">func Run(run func(context.Context) error, opts ...Option)</a>
+    <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#ListenAndServe" target="_blank" rel="noopener">func ListenAndServe(srv *http.Server, shutdownGrace time.Duration) func(context.Context) error</a>
+
+<span class="idx-h">OPTIONS</span>
+    <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#WithRunTimeout" target="_blank" rel="noopener">func WithRunTimeout(d time.Duration) Option</a>
+    <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#WithTerminationTimeout" target="_blank" rel="noopener">func WithTerminationTimeout(d time.Duration) Option</a>
+    <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#WithImmediateTermination" target="_blank" rel="noopener">func WithImmediateTermination() Option</a>
+    <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#WithLogger" target="_blank" rel="noopener">func WithLogger(l *slog.Logger) Option</a>
+    <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#WithStderr" target="_blank" rel="noopener">func WithStderr(w io.Writer) Option</a></code></pre>
+  </section>
+
+  <hr />
+
+  <section>
+    <h2 id="behavior">Behavior</h2>
+    <p>The first <code>SIGINT</code> or <code>SIGTERM</code> cancels the context passed into the run function, giving it a chance to shut down cleanly. A second signal forces an immediate exit. Optional timeouts bound the run duration and the total shutdown period.</p>
+    <p>Exit codes:</p>
+    <ul>
+      <li><code>0</code>: successful completion</li>
+      <li><code>1</code>: run function returned an error</li>
+      <li><code>124</code>: shutdown timeout exceeded</li>
+      <li><code>130</code>: forced shutdown (second signal or immediate termination)</li>
+    </ul>
+  </section>
+
+  <hr />
+
+  <section>
+    <h2 id="examples">Examples</h2>
+
+    <h3 id="ex-server">HTTP server</h3>
+    <p>First Ctrl+C drains in-flight requests for up to 15s. Second Ctrl+C forces an exit (130). Total time is capped at 30s (124 if exceeded).</p>
+<pre><code class="language-go">server := &amp;http.Server{
+    Addr:    ":8080",
+    Handler: mux,
+}
+
+graceful.Run(
+    graceful.ListenAndServe(server, 15*time.Second),
+    graceful.WithTerminationTimeout(30*time.Second),
+)</code></pre>
+
+    <h3 id="ex-batch">Batch job with a hard deadline</h3>
+<pre><code class="language-go">graceful.Run(
+    func(ctx context.Context) error {
+        return processBatch(ctx)
+    },
+    graceful.WithRunTimeout(1*time.Hour),
+)</code></pre>
+
+    <h3 id="ex-immediate">Immediate termination on first signal</h3>
+<pre><code class="language-go">graceful.Run(
+    func(ctx context.Context) error {
+        return runTask(ctx)
+    },
+    graceful.WithImmediateTermination(),
+)</code></pre>
+
+    <h3 id="ex-silent">Silence shutdown messages</h3>
+<pre><code class="language-go">graceful.Run(fn,
+    graceful.WithLogger(slog.New(slog.DiscardHandler)),
+)</code></pre>
+  </section>
+
+  <footer class="site-footer">
+    <p>
+      <a href="./">back to cli</a>
+      &middot;
+      <a href="https://pkg.go.dev/github.com/pressly/cli/graceful" target="_blank" rel="noopener">pkg.go.dev/graceful</a>
+    </p>
+  </footer>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script src="app.js"></script>
+
+</body>
+</html>

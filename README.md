@@ -95,8 +95,8 @@ example](examples/cmd/task/).
 
 ## Help
 
-Help text is generated automatically and displayed when `--help` is passed. To customize it, set
-the `Help` field on a command. It returns a string, so you can replace help entirely:
+Help text is generated automatically and displayed when `--help` is passed. To customize it, set the
+`Help` field on a command. It returns a string, so you can replace help entirely:
 
 ```go
 Help: func(c *cli.Command) string {

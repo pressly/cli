@@ -31,8 +31,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **BREAKING**: Remove `ErrHelp`; check `errors.Is(err, flag.ErrHelp)` when handling `Parse`
   directly
-- **BREAKING**: Remove `DefaultUsage` and the top-level `Usage` function; use `usage.Help(cmd)`
-  for direct help rendering
+- **BREAKING**: Remove `DefaultUsage` and the top-level `Usage` function; use `usage.Help(cmd)` for
+  direct help rendering
 
 ## [v0.6.0] - 2026-02-18
 

@@ -89,7 +89,7 @@ func TestStateCommandContext(t *testing.T) {
 						return "Usage:\n  root child\n\nExamples:\n  root child file.txt"
 					},
 					Exec: func(ctx context.Context, s *State) error {
-						output := Help(s.Cmd)
+						output := help(s.Cmd)
 						require.Contains(t, output, "Examples:")
 						require.Contains(t, output, "root child file.txt")
 						return nil
@@ -134,8 +134,8 @@ func TestStateCommandContext(t *testing.T) {
 			}),
 			SubCommands: []*Command{
 				{
-					Name:      "child",
-					ShortHelp: "Run the child command",
+					Name:        "child",
+					Description: "Run the child command",
 					Exec: func(ctx context.Context, s *State) error {
 						return UsageErrorf("missing file")
 					},

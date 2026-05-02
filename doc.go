@@ -13,9 +13,9 @@
 // Quick example:
 //
 //	root := &cli.Command{
-//	    Name:      "echo",
-//	    Usage:     "echo [flags] <text>...",
-//	    ShortHelp: "prints the provided text",
+//	    Name:        "echo",
+//	    Usage:       "echo [flags] <text>...",
+//	    Description: "prints the provided text",
 //	    Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 //	        f.Bool("c", false, "capitalize the input")
 //	    }),

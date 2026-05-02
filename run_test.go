@@ -256,9 +256,9 @@ func TestParseAndRun(t *testing.T) {
 
 		stdout := bytes.NewBuffer(nil)
 		root := &Command{
-			Name:      "greet",
-			ShortHelp: "Print a greeting",
-			Exec:      func(ctx context.Context, s *State) error { return nil },
+			Name:        "greet",
+			Description: "Print a greeting",
+			Exec:        func(ctx context.Context, s *State) error { return nil },
 		}
 
 		err := ParseAndRun(context.Background(), root, []string{"--help"}, &RunOptions{Stdout: stdout})

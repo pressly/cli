@@ -1,7 +1,7 @@
 // Package usage provides optional building blocks for command help documents.
 //
-// Use this package when cli's default help text is close to what you want, but you need to append
-// examples, add sections, or render the same command metadata in a different layout.
+// Use this package when you need to render help yourself, append examples, add sections, or render
+// command metadata in a different layout.
 package usage
 
 import (
@@ -150,18 +150,20 @@ func (w *countWriter) Write(p []byte) (int, error) {
 }
 
 // New returns the default help document for cmd.
+//
+// Use New from cli.Command.Help when you want to keep the built-in help layout and add or reorder
+// sections before returning the final string. Use New, not Help, inside a cli.Command.Help hook so
+// the hook does not call itself.
 func New(cmd *cli.Command) Document {
+	cmd = resolveCommand(cmd)
 	if cmd == nil {
 		return nil
-	}
-	if path := cmd.Path(); len(path) > 0 {
-		cmd = path[len(path)-1]
 	}
 
 	var doc Document
 
-	if cmd.ShortHelp != "" {
-		doc = append(doc, Text(cmd.ShortHelp))
+	if cmd.Description != "" {
+		doc = append(doc, Text(cmd.Description))
 	}
 
 	flags := collectHelpFlags(cmd)
@@ -188,7 +190,7 @@ func New(cmd *cli.Command) Document {
 		for _, sub := range sortedCommands {
 			subcommands = append(subcommands, Command{
 				Name:    sub.Name,
-				Summary: sub.ShortHelp,
+				Summary: sub.Description,
 			})
 		}
 		doc = append(doc, Commands("Available Commands:", subcommands))
@@ -227,9 +229,31 @@ func New(cmd *cli.Command) Document {
 	return doc
 }
 
-// Help returns the default help text for cmd.
+// Help returns help text for cmd.
+//
+// Use Help when handling flag.ErrHelp yourself after calling cli.Parse directly. It returns the
+// same text cli.ParseAndRun prints for --help: if the resolved command has a cli.Command.Help hook,
+// Help returns that hook's output; otherwise, it renders the default document from New. Inside a
+// cli.Command.Help hook, use New instead.
 func Help(cmd *cli.Command) string {
+	cmd = resolveCommand(cmd)
+	if cmd == nil {
+		return ""
+	}
+	if cmd.Help != nil {
+		return strings.TrimRight(cmd.Help(cmd), "\n")
+	}
 	return New(cmd).String()
+}
+
+func resolveCommand(cmd *cli.Command) *cli.Command {
+	if cmd == nil {
+		return nil
+	}
+	if path := cmd.Path(); len(path) > 0 {
+		return path[len(path)-1]
+	}
+	return cmd
 }
 
 func collectHelpFlags(cmd *cli.Command) []flagInfo {

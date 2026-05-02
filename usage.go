@@ -10,11 +10,7 @@ import (
 	"text/tabwriter"
 )
 
-// Help returns help text for root's resolved command.
-//
-// Call Help after Parse when you want to render help yourself. ParseAndRun calls it automatically
-// for --help, and Run calls it automatically for UsageErrorf errors.
-func Help(root *Command) string {
+func help(root *Command) string {
 	if root == nil {
 		return ""
 	}
@@ -32,8 +28,8 @@ func defaultHelp(root *Command) string {
 
 	var blocks []string
 
-	if terminalCmd.ShortHelp != "" {
-		blocks = append(blocks, terminalCmd.ShortHelp)
+	if terminalCmd.Description != "" {
+		blocks = append(blocks, terminalCmd.Description)
 	}
 
 	flags := collectHelpFlags(root, terminalCmd)
@@ -65,7 +61,7 @@ func defaultHelp(root *Command) string {
 		for _, sub := range sortedCommands {
 			subcommands = append(subcommands, helpItem{
 				Name:    sub.Name,
-				Summary: sub.ShortHelp,
+				Summary: sub.Description,
 			})
 		}
 		blocks = append(blocks, renderItems("Available Commands:", subcommands))

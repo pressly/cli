@@ -16,8 +16,9 @@ import (
 // Parse resolves a command and parses its flags without running it.
 //
 // Most programs should use [ParseAndRun]. Use Parse directly when you need to inspect parsed flags
-// or initialize resources before calling [Run]. If the user asks for help, Parse returns [ErrHelp]
-// after resolving the command so [Help] can render the right help text.
+// or initialize resources before calling [Run]. If the user asks for help, Parse returns
+// [flag.ErrHelp] after resolving the command so callers can render the right help text with the
+// usage.Help function.
 func Parse(root *Command, args []string) error {
 	if root == nil {
 		return fmt.Errorf("failed to parse: root command is nil")
@@ -52,7 +53,7 @@ func Parse(root *Command, args []string) error {
 		if arg == "-h" || arg == "--h" || arg == "-help" || arg == "--help" {
 			// Combine flags first so the help message includes all inherited flags
 			combineFlags(root.state.path)
-			return ErrHelp
+			return flag.ErrHelp
 		}
 	}
 

@@ -22,8 +22,8 @@ Requires Go 1.21 or higher.
 
 ```go
 root := &cli.Command{
-	Name:      "greet",
-	ShortHelp: "Print a greeting",
+	Name:        "greet",
+	Description: "Print a greeting",
 	Exec: func(ctx context.Context, s *cli.State) error {
 		fmt.Fprintln(s.Stdout, "hello, world!")
 		return nil
@@ -74,13 +74,13 @@ Commands can have nested subcommands, each with their own flags and `Exec` funct
 
 ```go
 root := &cli.Command{
-	Name:      "todo",
-	Usage:     "todo <command> [flags]",
-	ShortHelp: "A simple CLI for managing your tasks",
+	Name:        "todo",
+	Usage:       "todo <command> [flags]",
+	Description: "A simple CLI for managing your tasks",
 	SubCommands: []*cli.Command{
 		{
-			Name:      "list",
-			ShortHelp: "List all tasks",
+			Name:        "list",
+			Description: "List all tasks",
 			Exec: func(ctx context.Context, s *cli.State) error {
 				// ...
 				return nil
@@ -122,6 +122,19 @@ Usage:
 
 Examples:
   greet margo
+```
+
+If you use `Parse` directly and need to handle help yourself, render help with the optional `usage`
+package:
+
+```go
+if err := cli.Parse(root, args); err != nil {
+	if errors.Is(err, flag.ErrHelp) {
+		fmt.Fprintln(stdout, usage.Help(root))
+		return nil
+	}
+	return err
+}
 ```
 
 Inside `Exec`, `State` exposes the resolved command as `Cmd`, so usage errors can stay explicit:

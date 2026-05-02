@@ -9,13 +9,6 @@ import (
 	"github.com/pressly/cli/pkg/suggest"
 )
 
-// ErrHelp is returned by [Parse] when a help flag is present.
-//
-// [ParseAndRun] handles ErrHelp automatically by printing [Help] to stdout and returning nil.
-// Callers that use [Parse] and [Run] separately can check errors.Is(err, ErrHelp) and render help
-// themselves.
-var ErrHelp = flag.ErrHelp
-
 // Command defines one command in a CLI.
 //
 // A command can be the root command passed to [ParseAndRun], or a subcommand listed in
@@ -24,18 +17,19 @@ type Command struct {
 	// Name is the single word users type to select the command.
 	Name string
 
-	// Usage overrides the generated usage line when the command needs a custom synopsis.
+	// Usage overrides the generated usage line.
 	//
 	// Example: "cli todo list [flags]"
 	Usage string
 
-	// ShortHelp describes the command in help output and parent command listings.
-	ShortHelp string
+	// Description describes the command in help output and command lists.
+	Description string
 
 	// Help customizes the command's help text.
 	//
-	// Leave Help nil for the built-in help. Set it to replace help entirely, or use the usage
-	// package when you want to compose help from structured blocks.
+	// Leave Help nil for the built-in help. Set it to replace help entirely. To keep the built-in
+	// layout and add sections, call usage.New from the usage package and return the document's
+	// String result.
 	Help func(*Command) string
 
 	// Flags defines the command's flags using the standard library flag package.

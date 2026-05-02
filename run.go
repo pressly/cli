@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -26,8 +27,8 @@ type RunOptions struct {
 // Run executes the command selected by [Parse].
 //
 // Use Run only with the split [Parse]/Run flow. [ParseAndRun] is the usual entry point. If Exec
-// returns [UsageErrorf], Run prints [Help] for the selected command to stderr and returns the
-// underlying error.
+// returns an error created with [UsageErrorf], Run prints help for the selected command to stderr
+// and returns the underlying error.
 func Run(ctx context.Context, root *Command, options *RunOptions) error {
 	if ctx == nil {
 		ctx = context.Background()
@@ -53,7 +54,7 @@ func Run(ctx context.Context, root *Command, options *RunOptions) error {
 // ParseAndRun parses args and runs the selected command.
 //
 // Use ParseAndRun as the normal entry point for CLI applications. It handles help flags by printing
-// [Help] to stdout and returning nil, then runs Exec for the selected command.
+// command help to stdout and returning nil, then runs Exec for the selected command.
 //
 //	if err := cli.ParseAndRun(ctx, root, os.Args[1:], nil); err != nil {
 //	    fmt.Fprintf(os.Stderr, "error: %v\n", err)
@@ -64,9 +65,9 @@ func Run(ctx context.Context, root *Command, options *RunOptions) error {
 // initializing resources from parsed flags.
 func ParseAndRun(ctx context.Context, root *Command, args []string, options *RunOptions) error {
 	if err := Parse(root, args); err != nil {
-		if errors.Is(err, ErrHelp) {
+		if errors.Is(err, flag.ErrHelp) {
 			options = checkAndSetRunOptions(options)
-			_, _ = fmt.Fprintln(options.Stdout, Help(root))
+			_, _ = fmt.Fprintln(options.Stdout, help(root))
 			return nil
 		}
 		return err
@@ -92,9 +93,9 @@ func run(ctx context.Context, cmd *Command, state *State) (retErr error) {
 		}
 	}()
 	err := cmd.Exec(ctx, state)
-	var usageErr *UsageError
+	var usageErr *usageError
 	if errors.As(err, &usageErr) {
-		_, _ = fmt.Fprintln(state.Stderr, Help(state.Cmd))
+		_, _ = fmt.Fprintln(state.Stderr, help(state.Cmd))
 		return usageErr.Unwrap()
 	}
 	return err

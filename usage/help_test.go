@@ -1,6 +1,7 @@
 package usage
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"strings"
@@ -55,8 +56,8 @@ func TestCommandHelp(t *testing.T) {
 	t.Parallel()
 
 	root := &cli.Command{
-		Name:      "greet",
-		ShortHelp: "print a greeting",
+		Name:        "greet",
+		Description: "print a greeting",
 		Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 			f.Bool("verbose", false, "enable verbose output")
 			f.String("format", "plain", "output format")
@@ -69,7 +70,12 @@ func TestCommandHelp(t *testing.T) {
 	require.NoError(t, cli.Parse(root, nil))
 
 	output := Help(root)
-	require.Equal(t, cli.Help(root), output)
+	var stdout bytes.Buffer
+	err := cli.ParseAndRun(context.Background(), root, []string{"--help"}, &cli.RunOptions{
+		Stdout: &stdout,
+	})
+	require.NoError(t, err)
+	require.Equal(t, output, strings.TrimRight(stdout.String(), "\n"))
 	require.Contains(t, output, "print a greeting")
 	require.Contains(t, output, "Usage:")
 	require.Contains(t, output, "greet [flags]")
@@ -81,8 +87,8 @@ func TestCommandHelpUsesResolvedCommand(t *testing.T) {
 	t.Parallel()
 
 	child := &cli.Command{
-		Name:      "child",
-		ShortHelp: "run the child command",
+		Name:        "child",
+		Description: "run the child command",
 		Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 			f.String("file", "", "input file")
 		}),
@@ -99,7 +105,12 @@ func TestCommandHelpUsesResolvedCommand(t *testing.T) {
 	require.NoError(t, cli.Parse(root, []string{"child"}))
 
 	output := Help(root)
-	require.Equal(t, cli.Help(root), output)
+	var stdout bytes.Buffer
+	err := cli.ParseAndRun(context.Background(), root, []string{"child", "--help"}, &cli.RunOptions{
+		Stdout: &stdout,
+	})
+	require.NoError(t, err)
+	require.Equal(t, output, strings.TrimRight(stdout.String(), "\n"))
 	require.Contains(t, output, "run the child command")
 	require.Contains(t, output, "root child [flags]")
 	require.Contains(t, output, "Flags:")
@@ -112,8 +123,8 @@ func TestCommandDocumentComposition(t *testing.T) {
 	t.Parallel()
 
 	root := &cli.Command{
-		Name:      "greet",
-		ShortHelp: "print a greeting",
+		Name:        "greet",
+		Description: "print a greeting",
 		Help: func(c *cli.Command) string {
 			doc := New(c)
 			doc = append(doc, Lines("Examples:", "greet margo"))
@@ -121,10 +132,52 @@ func TestCommandDocumentComposition(t *testing.T) {
 		},
 		Exec: func(ctx context.Context, s *cli.State) error { return nil },
 	}
-	require.NoError(t, cli.Parse(root, nil))
+	var stdout bytes.Buffer
+	err := cli.ParseAndRun(context.Background(), root, []string{"--help"}, &cli.RunOptions{
+		Stdout: &stdout,
+	})
+	require.NoError(t, err)
 
-	output := cli.Help(root)
+	output := stdout.String()
+	require.Equal(t, strings.TrimRight(output, "\n"), Help(root))
 	require.Contains(t, output, "print a greeting")
 	require.Contains(t, output, "Examples:")
 	require.Contains(t, output, "greet margo")
+}
+
+func TestCommandHelpUsesCustomHook(t *testing.T) {
+	t.Parallel()
+
+	root := &cli.Command{
+		Name: "greet",
+		Help: func(c *cli.Command) string {
+			require.Equal(t, "greet", c.Name)
+			return "custom help\n"
+		},
+		Exec: func(ctx context.Context, s *cli.State) error { return nil },
+	}
+	require.NoError(t, cli.Parse(root, nil))
+
+	require.Equal(t, "custom help", Help(root))
+}
+
+func TestCommandHelpUsesResolvedCustomHook(t *testing.T) {
+	t.Parallel()
+
+	child := &cli.Command{
+		Name: "child",
+		Help: func(c *cli.Command) string {
+			require.Equal(t, "child", c.Name)
+			return "child help"
+		},
+		Exec: func(ctx context.Context, s *cli.State) error { return nil },
+	}
+	root := &cli.Command{
+		Name:        "root",
+		SubCommands: []*cli.Command{child},
+		Exec:        func(ctx context.Context, s *cli.State) error { return nil },
+	}
+	require.NoError(t, cli.Parse(root, []string{"child"}))
+
+	require.Equal(t, "child help", Help(root))
 }

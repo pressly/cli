@@ -12,8 +12,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `flagtype.EnumDefault` constructor for enums with an initial default value
 - New optional `usage` package with composable help document blocks: `Document`, `Text`, `Lines`,
   `List`, `Flags`, and `Commands`
-- `usage.New` and `usage.Help` for building or rendering default help from a command
-- `Help` function for rendering the resolved command help text
+- `usage.New` and `usage.Help` for building default help documents or rendering command help
 - `Cmd` field on `State` for accessing the terminal command selected by parsing
 - `UsageErrorf` for opt-in usage errors; `Run` prints command help to stderr before returning the
   underlying error
@@ -22,9 +21,7 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 - **BREAKING**: Replace `Command.UsageFunc` with `Command.Help`, which returns the full help string
   for a command
-- **BREAKING**: `Help` now returns a string instead of a structured help document; use
-  `usage.New(cmd)` when you want composable help blocks
-- **BREAKING**: Rename the structured `usage.Help` document type to `usage.Document`
+- **BREAKING**: Rename `Command.ShortHelp` to `Command.Description`
 - **BREAKING**: Rename `FlagOption` to `FlagConfig` and `Command.FlagOptions` to
   `Command.FlagConfigs`
 - Help output keeps the default automatic `--help` behavior while making the richer `usage` package
@@ -32,7 +29,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Removed
 
-- **BREAKING**: Remove `DefaultUsage` and `Usage`; use `Help(cmd)` for direct rendering
+- **BREAKING**: Remove `ErrHelp`; check `errors.Is(err, flag.ErrHelp)` when handling `Parse`
+  directly
+- **BREAKING**: Remove `DefaultUsage` and the top-level `Usage` function; use `usage.Help(cmd)`
+  for direct help rendering
 
 ## [v0.6.0] - 2026-02-18
 

@@ -13,7 +13,7 @@ func TestUsageError(t *testing.T) {
 	err := UsageErrorf("missing %s", "name")
 	require.EqualError(t, err, "missing name")
 
-	var usageErr *UsageError
+	var usageErr *usageError
 	require.True(t, errors.As(err, &usageErr))
 	require.EqualError(t, errors.Unwrap(err), "missing name")
 }

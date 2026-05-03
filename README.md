@@ -121,8 +121,8 @@ Usage:
   todo list
 ```
 
-If a command only needs one sentence, set `Summary` and leave `Description` empty. If
-`Description` is set and `Summary` is empty, command lists use the first line of `Description`.
+If a command only needs one sentence, set `Summary` and leave `Description` empty. If `Description`
+is set and `Summary` is empty, command lists use the first line of `Description`.
 
 For a more complete example with deeply nested subcommands, see the [todo
 example](examples/cmd/task/).

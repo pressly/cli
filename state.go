@@ -7,8 +7,7 @@ import (
 	"io"
 )
 
-// State is the value passed to [Command.Exec]. Use Args for positional arguments,
-// Stdin/Stdout/Stderr for I/O, Cmd for the picked command, and [GetFlag] to read flag values.
+// State is the value passed to [Command.Exec]. It holds the parsed inputs the command needs to run.
 type State struct {
 	// Args holds the positional arguments left after the command name and flags are parsed.
 	// Anything after "--" is included as-is, even if it looks like a flag.

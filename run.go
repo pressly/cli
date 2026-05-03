@@ -28,9 +28,9 @@ type RunOptions struct {
 // Run runs the command picked by a previous call to [Parse]. Use Run only when you call [Parse]
 // separately. For the common case, use [ParseAndRun].
 //
-// If Exec returns an error created by [UsageErrorf], Run prints the command's help to stderr and
-// returns the error you passed to UsageErrorf. Other errors are returned as-is. A nil ctx defaults
-// to [context.Background].
+// If [Command.Exec] returns an error created by [UsageErrorf], Run prints the command's help to
+// stderr and returns the error you passed to [UsageErrorf]. Other errors are returned as-is. A nil
+// ctx defaults to [context.Background].
 func Run(ctx context.Context, root *Command, options *RunOptions) error {
 	if ctx == nil {
 		ctx = context.Background()
@@ -53,8 +53,8 @@ func Run(ctx context.Context, root *Command, options *RunOptions) error {
 	return run(ctx, cmd, root.state)
 }
 
-// ParseAndRun parses args, picks the right command, and runs its Exec. This is the normal way to
-// start a CLI program:
+// ParseAndRun parses args, picks the right command, and runs its [Command.Exec]. This is the normal
+// way to start a CLI program:
 //
 //	if err := cli.ParseAndRun(ctx, root, os.Args[1:], nil); err != nil {
 //	    fmt.Fprintf(os.Stderr, "error: %v\n", err)

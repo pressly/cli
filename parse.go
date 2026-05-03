@@ -13,9 +13,9 @@ import (
 	"github.com/pressly/cli/xflag"
 )
 
-// Parse picks the right command and parses its flags from args, but does not run Exec. Use Parse
-// with [Run] when you need to do work between parsing and running. For the common case, call
-// [ParseAndRun].
+// Parse picks the right command and parses its flags from args, but does not run [Command.Exec].
+// Use Parse with [Run] when you need to do work between parsing and running. For the common case,
+// call [ParseAndRun].
 //
 // Parse returns [flag.ErrHelp] when the user passes -h or --help. You have to print the help
 // yourself when this happens. [ParseAndRun] does it for you.

@@ -12,8 +12,7 @@ import (
 // Command describes a single command in the CLI.
 //
 // Pass a Command to [ParseAndRun] (or [Parse] and [Run]) to run a program. To add a subcommand,
-// list it in another command's [Command.SubCommands]. Most commands set Name, a one-line Summary,
-// Flags, and Exec. Add Description for longer help and SubCommands for nested commands.
+// list it in another command's [Command.SubCommands].
 type Command struct {
 	// Name is the word users type to pick this command. It must start with a letter and can contain
 	// letters, digits, dashes, or underscores. For the root command it is also the program name
@@ -28,15 +27,16 @@ type Command struct {
 	Usage string
 
 	// Summary is the one-line description shown next to this command in its parent's command list.
-	// It is also shown at the top of this command's own help when Description is empty.
+	// It is also shown at the top of this command's own help when [Command.Description] is empty.
 	//
-	// Most commands only need Summary. Use Description when one line is not enough.
+	// Most commands only need Summary. Use [Command.Description] when one line is not enough.
 	Summary string
 
 	// Description is the longer help text shown at the top of this command's own help. Use it to
 	// explain behavior, defaults, or anything else worth knowing.
 	//
-	// When Summary is empty, the first line of Description is used in command lists instead.
+	// When [Command.Summary] is empty, the first line of Description is used in command lists
+	// instead.
 	Description string
 
 	// Help replaces the built-in help text for this command. Leave it nil to use the default help.
@@ -49,26 +49,26 @@ type Command struct {
 	// Flags holds this command's flags as a standard library [flag.FlagSet]. Build it with
 	// [flag.NewFlagSet], or use [FlagsFunc] to define flags inline.
 	//
-	// Subcommands inherit these flags unless they are marked Local in FlagConfigs. Read flag values
-	// inside Exec with [GetFlag].
+	// Subcommands inherit these flags unless they are marked [FlagConfig.Local] in
+	// [Command.FlagConfigs]. Read flag values inside [Command.Exec] with [GetFlag].
 	Flags *flag.FlagSet
 
-	// FlagConfigs adds extra behavior to flags already defined in Flags: short aliases
-	// ([FlagConfig.Short]), required flags ([FlagConfig.Required]), and flags that should not be
-	// inherited ([FlagConfig.Local]).
+	// FlagConfigs adds extra behavior to flags already defined in [Command.Flags]. See [FlagConfig]
+	// for the available options.
 	//
-	// Each entry must point to a flag defined in Flags. Otherwise [Parse] returns an error.
+	// Each entry must point to a flag defined in [Command.Flags]. Otherwise [Parse] returns an
+	// error.
 	FlagConfigs []FlagConfig
 
-	// SubCommands are the commands users can pick after this command's Name.
+	// SubCommands are the commands users can pick after this command's name.
 	//
 	// When a command has SubCommands, the first non-flag argument must match one of them. An
 	// unknown name returns an "unknown command" error with suggestions. Commands without
 	// SubCommands pass any non-flag arguments through to [State.Args].
 	SubCommands []*Command
 
-	// Exec is the function that runs when this command is picked. It is given a [State] with the
-	// positional arguments, I/O streams, and access to flag values via [GetFlag].
+	// Exec is the function that runs when this command is picked. It is given a [State] holding the
+	// parsed inputs the command needs.
 	//
 	// Return [UsageErrorf] for bad arguments or flag combinations so [Run] prints the command's
 	// help to stderr. Return a normal error for everything else; [Run] returns it without printing
@@ -79,7 +79,7 @@ type Command struct {
 }
 
 // Path returns the list of commands from the root down to this command. It is usually called inside
-// Exec as s.Cmd.Path() to build error messages that include the full command path.
+// [Command.Exec] as s.Cmd.Path() to build error messages that include the full command path.
 //
 // Path returns nil if called before [Parse].
 func (c *Command) Path() []*Command {
@@ -97,10 +97,10 @@ func (c *Command) terminal() *Command {
 	return c.state.path[len(c.state.path)-1]
 }
 
-// FlagConfig adds extra behavior to a single flag already defined in a [Command.Flags] FlagSet. It
-// is used as an entry in [Command.FlagConfigs].
+// FlagConfig adds extra behavior to a single flag already defined in [Command.Flags]. It is used as
+// an entry in [Command.FlagConfigs].
 type FlagConfig struct {
-	// Name is the long flag name as registered in the command's FlagSet.
+	// Name is the long flag name as registered in the command's [flag.FlagSet].
 	Name string
 
 	// Short is a one-letter alias for the flag, such as "v" so users can type -v instead of

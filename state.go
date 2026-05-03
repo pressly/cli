@@ -7,21 +7,20 @@ import (
 	"io"
 )
 
-// State carries the parsed invocation context into [Command.Exec]. Use Args for positional
-// arguments, Stdin/Stdout/Stderr for I/O, Cmd for the selected command, and [GetFlag] to read flag
-// values.
+// State is the value passed to [Command.Exec]. Use Args for positional arguments,
+// Stdin/Stdout/Stderr for I/O, Cmd for the picked command, and [GetFlag] to read flag values.
 type State struct {
-	// Args holds the positional arguments left after command resolution and flag parsing. Anything
-	// after a "--" delimiter is included verbatim, even if it would otherwise look like a flag.
+	// Args holds the positional arguments left after the command name and flags are parsed.
+	// Anything after "--" is included as-is, even if it looks like a flag.
 	Args []string
 
-	// Stdin, Stdout, and Stderr are the streams command code should use in place of the package-
-	// level os.Stdin, os.Stdout, and os.Stderr. Tests can swap them via [RunOptions].
+	// Stdin, Stdout, and Stderr are the streams to use in your command code instead of os.Stdin,
+	// os.Stdout, and os.Stderr. Tests can swap them via [RunOptions].
 	Stdin          io.Reader
 	Stdout, Stderr io.Writer
 
-	// Cmd is the resolved (terminal) command. Call Cmd.Path() for the chain from the root down,
-	// useful for command-aware error messages or breadcrumbs.
+	// Cmd is the command that was picked. Call Cmd.Path() to get the full list of commands from the
+	// root down, useful for error messages that include the command path.
 	Cmd *Command
 
 	// path is the command hierarchy from the root command to the current command. The root command
@@ -29,13 +28,12 @@ type State struct {
 	path []*Command
 }
 
-// GetFlag returns the parsed value of a flag, type-checked against T. Call it from inside
-// [Command.Exec] with the same Go type that was used when the flag was defined.
+// GetFlag returns the value of a flag as type T. Call it from inside [Command.Exec] with the same
+// Go type that was used when the flag was defined.
 //
-// Lookup walks from the selected command up through inherited parent flags, so a flag defined on
-// the root command is reachable from any subcommand. An unknown flag name, or one read with the
-// wrong type, is treated as a programming error: GetFlag panics, and [Run] recovers and returns
-// the error to the caller.
+// GetFlag looks for the flag on the picked command first, then in its parent commands. A flag
+// defined on the root command can be read from any subcommand. An unknown flag name or a wrong type
+// is a programming error: GetFlag panics, and [Run] catches the panic and returns the error.
 //
 //	verbose := cli.GetFlag[bool](s, "verbose")
 //	count   := cli.GetFlag[int](s, "count")

@@ -33,6 +33,6 @@
 //	    os.Exit(1)
 //	}
 //
-// The API stays deliberately small. cli builds on the standard library's flag package instead of
-// replacing it, so most of what you write is your program rather than the scaffolding around it.
+// The API is small on purpose. cli uses the standard library flag package instead of replacing it,
+// so most of what you write is your program.
 package cli

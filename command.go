@@ -11,80 +11,77 @@ import (
 
 // Command describes a single command in the CLI.
 //
-// Pass a Command to [ParseAndRun] (or [Parse] and [Run]) to drive a program, or list one inside
-// another command's [Command.SubCommands] to add a subcommand. Most commands set Name, a one-line
-// Summary, Flags, and Exec; Description and SubCommands are added as the program grows.
+// Pass a Command to [ParseAndRun] (or [Parse] and [Run]) to run a program. To add a subcommand,
+// list it in another command's [Command.SubCommands]. Most commands set Name, a one-line Summary,
+// Flags, and Exec. Add Description for longer help and SubCommands for nested commands.
 type Command struct {
-	// Name is the word users type to select this command. It must start with a letter and may
-	// contain letters, digits, dashes, or underscores. For the root command it also identifies the
-	// program in generated help.
+	// Name is the word users type to pick this command. It must start with a letter and can contain
+	// letters, digits, dashes, or underscores. For the root command it is also the program name
+	// shown in help.
 	Name string
 
-	// Usage replaces the auto-generated usage line shown at the top of help. Set it to convey the
-	// expected positional arguments; the generated form covers only the command path plus a
-	// trailing [flags] when the command has flags.
+	// Usage replaces the usage line shown at the top of help. Set it to show the expected
+	// arguments. The default usage line shows only the command path, plus "[flags]" when the
+	// command has flags.
 	//
 	// Example: "todo list <view> [flags]"
 	Usage string
 
-	// Summary is the one-line description shown next to this command in a parent's command listing.
+	// Summary is the one-line description shown next to this command in its parent's command list.
 	// It is also shown at the top of this command's own help when Description is empty.
 	//
-	// Most commands only need Summary; reach for Description when one line is not enough.
+	// Most commands only need Summary. Use Description when one line is not enough.
 	Summary string
 
-	// Description is the longer help text shown at the top of this command's own help. Use it for
-	// paragraphs that explain behavior, defaults, or important context.
+	// Description is the longer help text shown at the top of this command's own help. Use it to
+	// explain behavior, defaults, or anything else worth knowing.
 	//
-	// When Summary is empty, the first line of Description is used in command listings.
+	// When Summary is empty, the first line of Description is used in command lists instead.
 	Description string
 
-	// Help replaces the built-in help text for this command. Leave it nil to use the generated help.
+	// Help replaces the built-in help text for this command. Leave it nil to use the default help.
 	//
-	// The function receives the resolved command and returns the full help string printed for
-	// --help and for [UsageErrorf] errors. Each command in a tree may set its own Help; only the
-	// selected command's Help is invoked.
+	// The function is given the command and returns the full help string. Help is used for --help
+	// and for [UsageErrorf] errors. Each command can set its own Help, and only the selected
+	// command's Help is called.
 	Help func(*Command) string
 
-	// Flags is the standard library [flag.FlagSet] that defines this command's flags. Construct it
-	// with [flag.NewFlagSet], or use [FlagsFunc] for a compact inline form.
+	// Flags holds this command's flags as a standard library [flag.FlagSet]. Build it with
+	// [flag.NewFlagSet], or use [FlagsFunc] to define flags inline.
 	//
-	// Flags defined here are inherited by SubCommands unless marked Local in FlagConfigs. Read
-	// parsed values inside Exec with [GetFlag].
+	// Subcommands inherit these flags unless they are marked Local in FlagConfigs. Read flag values
+	// inside Exec with [GetFlag].
 	Flags *flag.FlagSet
 
-	// FlagConfigs layers cli-specific behavior on top of flags already defined in Flags: short
-	// aliases ([FlagConfig.Short]), required flags ([FlagConfig.Required]), and opting out of
-	// inheritance ([FlagConfig.Local]).
+	// FlagConfigs adds extra behavior to flags already defined in Flags: short aliases
+	// ([FlagConfig.Short]), required flags ([FlagConfig.Required]), and flags that should not be
+	// inherited ([FlagConfig.Local]).
 	//
-	// Each entry must reference a flag registered in Flags by Name; otherwise [Parse] returns an
-	// error.
+	// Each entry must point to a flag defined in Flags. Otherwise [Parse] returns an error.
 	FlagConfigs []FlagConfig
 
-	// SubCommands are commands selected after this command's Name.
+	// SubCommands are the commands users can pick after this command's Name.
 	//
-	// When a command has SubCommands, the first non-flag argument must match one of them; an
-	// unknown name produces an "unknown command" error with suggestions. Commands without
-	// SubCommands receive any non-flag arguments as positionals in [State.Args].
+	// When a command has SubCommands, the first non-flag argument must match one of them. An
+	// unknown name returns an "unknown command" error with suggestions. Commands without
+	// SubCommands pass any non-flag arguments through to [State.Args].
 	SubCommands []*Command
 
-	// Exec is the function invoked once parsing selects this command. It receives the parsed
-	// [State], which carries positional arguments, I/O streams, and access to flag values via
-	// [GetFlag].
+	// Exec is the function that runs when this command is picked. It is given a [State] with the
+	// positional arguments, I/O streams, and access to flag values via [GetFlag].
 	//
-	// Return [UsageErrorf] for bad arguments or flag combinations so [Run] prints command help to
-	// stderr; return a normal error for operational failures, which [Run] returns without printing
+	// Return [UsageErrorf] for bad arguments or flag combinations so [Run] prints the command's
+	// help to stderr. Return a normal error for everything else; [Run] returns it without printing
 	// help.
 	Exec func(ctx context.Context, s *State) error
 
 	state *State
 }
 
-// Path returns the chain of resolved commands from the root down to this command, inclusive. It is
-// available after [Parse] succeeds and is most often called from inside Exec as s.Cmd.Path() to
-// build command-aware error messages or breadcrumbs.
+// Path returns the list of commands from the root down to this command. It is usually called inside
+// Exec as s.Cmd.Path() to build error messages that include the full command path.
 //
-// Path returns nil if called before parsing.
+// Path returns nil if called before [Parse].
 func (c *Command) Path() []*Command {
 	if c.state == nil {
 		return nil
@@ -100,28 +97,28 @@ func (c *Command) terminal() *Command {
 	return c.state.path[len(c.state.path)-1]
 }
 
-// FlagConfig attaches cli-specific behavior to a single flag already defined in a [Command.Flags]
-// FlagSet. It is the entry type used in [Command.FlagConfigs].
+// FlagConfig adds extra behavior to a single flag already defined in a [Command.Flags] FlagSet. It
+// is used as an entry in [Command.FlagConfigs].
 type FlagConfig struct {
 	// Name is the long flag name as registered in the command's FlagSet.
 	Name string
 
-	// Short is a one-letter alias for the flag, such as "v" so users can type -v in place of
-	// --verbose. Both forms are listed in help output.
+	// Short is a one-letter alias for the flag, such as "v" so users can type -v instead of
+	// --verbose. Both forms are shown in help.
 	Short string
 
-	// Required, when true, makes [Parse] fail unless the user provides the flag explicitly. The
-	// flag's default value alone is not enough.
+	// Required, when true, makes [Parse] fail unless the user sets the flag. The default value is
+	// not enough; the user must pass it.
 	Required bool
 
-	// Local, when true, keeps the flag on this command and prevents it from being inherited by
-	// subcommands. By default, parent flags are inherited.
+	// Local, when true, keeps the flag on this command only and stops it from being inherited by
+	// subcommands. Parent flags are inherited by default.
 	Local bool
 }
 
-// FlagsFunc constructs a [flag.FlagSet] inline for a [Command.Flags] field, sparing callers from
-// declaring and assigning the FlagSet separately. The returned FlagSet uses [flag.ContinueOnError]
-// so parsing errors are returned rather than fatal.
+// FlagsFunc creates a [flag.FlagSet] inline so you don't have to make one and assign it separately.
+// The returned FlagSet uses [flag.ContinueOnError], so parsing errors are returned instead of being
+// fatal.
 //
 //	Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 //	    f.Bool("verbose", false, "enable verbose output")

@@ -1,21 +1,21 @@
-// Package cli provides a lightweight library for building command-line applications using Go's
-// standard library flag package. It extends flag functionality to support flags anywhere in command
-// arguments.
+// Package cli builds command-line programs on top of the standard library [flag] package. It adds
+// nested subcommands and lets users place flags anywhere in command arguments.
 //
-// Key features:
-//   - Nested subcommands for organizing complex CLIs
-//   - Flexible flag parsing, allowing flags anywhere in arguments
-//   - Parent-to-child flag inheritance
-//   - Type-safe flag access
-//   - Automatic help text generation
-//   - Command suggestions for misspelled inputs
+// Features:
+//   - Nested subcommands via [Command.SubCommands]
+//   - Flags placed anywhere on the command line
+//   - Parent flags inherited by child commands
+//   - Type-safe flag access via [GetFlag]
+//   - Generated help, replaceable per command via [Command.Help]
+//   - "Did you mean" suggestions for misspelled subcommands
 //
 // Quick example:
 //
 //	root := &cli.Command{
 //	    Name:        "echo",
 //	    Usage:       "echo [flags] <text>...",
-//	    Description: "prints the provided text",
+//	    Summary:     "Print text",
+//	    Description: "echo prints the provided text.",
 //	    Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 //	        f.Bool("c", false, "capitalize the input")
 //	    }),
@@ -28,9 +28,11 @@
 //	        return nil
 //	    },
 //	}
+//	if err := cli.ParseAndRun(ctx, root, os.Args[1:], nil); err != nil {
+//	    fmt.Fprintf(os.Stderr, "error: %v\n", err)
+//	    os.Exit(1)
+//	}
 //
-// The package intentionally maintains a minimal API surface to serve as a building block for CLI
-// applications while leveraging the standard library's flag package. This approach enables
-// developers to build maintainable command-line tools quickly while focusing on application logic
-// rather than framework complexity.
+// The API stays deliberately small. cli builds on the standard library's flag package instead of
+// replacing it, so most of what you write is your program rather than the scaffolding around it.
 package cli

@@ -6,11 +6,17 @@ type usageError struct {
 	err error
 }
 
-// UsageErrorf returns an error for invalid command-line usage.
+// UsageErrorf builds an error that signals invalid command-line usage. Return it from
+// [Command.Exec] when the command was selected successfully but the arguments or flag combination
+// are wrong:
 //
-// Return UsageErrorf from Exec when the command was selected successfully but the remaining args or
-// flag combination are invalid. [Run] prints command help to stderr, then returns the formatted
-// error without the usage wrapper. Return a normal error when you do not want help printed.
+//	if len(s.Args) == 0 {
+//	    return cli.UsageErrorf("must supply a name")
+//	}
+//
+// When [Run] sees a UsageErrorf error, it prints the resolved command's help to stderr and returns
+// the underlying formatted error to the caller. Return a normal error if you do not want help
+// printed.
 func UsageErrorf(format string, args ...any) error {
 	return &usageError{err: fmt.Errorf(format, args...)}
 }

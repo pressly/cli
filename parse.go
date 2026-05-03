@@ -13,12 +13,12 @@ import (
 	"github.com/pressly/cli/xflag"
 )
 
-// Parse resolves a command and parses its flags without running it.
+// Parse resolves the selected command and parses its flags from args, but does not run Exec. Pair
+// it with [Run] when you need to do work between parsing and execution; for the common case, call
+// [ParseAndRun].
 //
-// Most programs should use [ParseAndRun]. Use Parse directly when you need to inspect parsed flags
-// or initialize resources before calling [Run]. If the user asks for help, Parse returns
-// [flag.ErrHelp] after resolving the command so callers can render the right help text with the
-// usage.Help function.
+// Parse returns [flag.ErrHelp] when the user passes -h or --help. The caller is responsible for
+// printing help in that case; [ParseAndRun] does this automatically.
 func Parse(root *Command, args []string) error {
 	if root == nil {
 		return fmt.Errorf("failed to parse: root command is nil")

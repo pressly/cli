@@ -383,6 +383,75 @@ func TestUsageGeneration(t *testing.T) {
 	})
 }
 
+func TestHelpSummaryAndDescription(t *testing.T) {
+	t.Parallel()
+
+	child := &Command{
+		Name:    "list",
+		Summary: "List tasks",
+		Description: `List tasks in the current workspace.
+
+By default, completed tasks are hidden.`,
+		Exec: func(ctx context.Context, s *State) error { return nil },
+	}
+	root := &Command{
+		Name:        "todo",
+		Summary:     "Manage tasks",
+		SubCommands: []*Command{child},
+		Exec:        func(ctx context.Context, s *State) error { return nil },
+	}
+
+	require.NoError(t, Parse(root, nil))
+	output := help(root)
+	require.Contains(t, output, "list    List tasks")
+	require.NotContains(t, output, "By default, completed tasks are hidden.")
+
+	require.NoError(t, Parse(root, []string{"list"}))
+	output = help(root)
+	require.Contains(t, output, "List tasks in the current workspace.")
+	require.Contains(t, output, "By default, completed tasks are hidden.")
+}
+
+func TestHelpDescriptionFallbacks(t *testing.T) {
+	t.Parallel()
+
+	t.Run("summary is shown in command help when description is empty", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &Command{
+			Name:    "greet",
+			Summary: "Print a greeting",
+			Exec:    func(ctx context.Context, s *State) error { return nil },
+		}
+
+		require.NoError(t, Parse(cmd, nil))
+		require.Contains(t, help(cmd), "Print a greeting")
+	})
+
+	t.Run("description first line is shown in command lists when summary is empty", func(t *testing.T) {
+		t.Parallel()
+
+		root := &Command{
+			Name: "todo",
+			SubCommands: []*Command{
+				{
+					Name: "list",
+					Description: `List tasks in the current workspace.
+
+By default, completed tasks are hidden.`,
+					Exec: func(ctx context.Context, s *State) error { return nil },
+				},
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+
+		require.NoError(t, Parse(root, nil))
+		output := help(root)
+		require.Contains(t, output, "list    List tasks in the current workspace.")
+		require.NotContains(t, output, "By default, completed tasks are hidden.")
+	})
+}
+
 func TestFlagHelp(t *testing.T) {
 	t.Parallel()
 

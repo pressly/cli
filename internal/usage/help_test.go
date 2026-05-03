@@ -17,13 +17,13 @@ func TestHelpString(t *testing.T) {
 	h := Document{
 		Text("print a greeting"),
 		Lines("Usage:", "greet [flags] <name>"),
-		Flags("Flags:", []Flag{
-			{Name: "verbose", Short: "v", Usage: "enable verbose output"},
-			{Name: "output", Placeholder: "string", Usage: "output file", Required: true},
-		}),
-		Commands("Available Commands:", []Command{
-			{Name: "hello", Summary: "print hello"},
-		}),
+		List("Flags:",
+			Item{Name: "-v, --verbose", Summary: "enable verbose output"},
+			Item{Name: "--output string", Summary: "output file (required)"},
+		),
+		List("Available Commands:",
+			Item{Name: "hello", Summary: "print hello"},
+		),
 	}
 
 	output := h.String()
@@ -38,17 +38,17 @@ func TestHelpString(t *testing.T) {
 	require.False(t, strings.HasSuffix(output, "\n"))
 }
 
-func TestBlockString(t *testing.T) {
+func TestDocumentStringForSingleBlock(t *testing.T) {
 	t.Parallel()
 
-	output := Lines("Examples:", "greet margo").String()
+	output := Document{Lines("Examples:", "greet margo")}.String()
 	require.Equal(t, "Examples:\n  greet margo", output)
 }
 
 func TestListWithoutSummary(t *testing.T) {
 	t.Parallel()
 
-	output := List("Commands:", Item{Name: "serve"}).String()
+	output := Document{List("Commands:", Item{Name: "serve"})}.String()
 	require.Equal(t, "Commands:\n  serve", output)
 }
 
@@ -143,6 +143,75 @@ func TestCommandDocumentComposition(t *testing.T) {
 	require.Contains(t, output, "print a greeting")
 	require.Contains(t, output, "Examples:")
 	require.Contains(t, output, "greet margo")
+}
+
+func TestCommandHelpSummaryAndDescription(t *testing.T) {
+	t.Parallel()
+
+	child := &cli.Command{
+		Name:    "list",
+		Summary: "List tasks",
+		Description: `List tasks in the current workspace.
+
+By default, completed tasks are hidden.`,
+		Exec: func(ctx context.Context, s *cli.State) error { return nil },
+	}
+	root := &cli.Command{
+		Name:        "todo",
+		Summary:     "Manage tasks",
+		SubCommands: []*cli.Command{child},
+		Exec:        func(ctx context.Context, s *cli.State) error { return nil },
+	}
+
+	require.NoError(t, cli.Parse(root, nil))
+	output := Help(root)
+	require.Contains(t, output, "list    List tasks")
+	require.NotContains(t, output, "By default, completed tasks are hidden.")
+
+	require.NoError(t, cli.Parse(root, []string{"list"}))
+	output = Help(root)
+	require.Contains(t, output, "List tasks in the current workspace.")
+	require.Contains(t, output, "By default, completed tasks are hidden.")
+}
+
+func TestCommandHelpDescriptionFallbacks(t *testing.T) {
+	t.Parallel()
+
+	t.Run("summary is shown in command help when description is empty", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &cli.Command{
+			Name:    "greet",
+			Summary: "Print a greeting",
+			Exec:    func(ctx context.Context, s *cli.State) error { return nil },
+		}
+
+		require.NoError(t, cli.Parse(cmd, nil))
+		require.Contains(t, Help(cmd), "Print a greeting")
+	})
+
+	t.Run("description first line is shown in command lists when summary is empty", func(t *testing.T) {
+		t.Parallel()
+
+		root := &cli.Command{
+			Name: "todo",
+			SubCommands: []*cli.Command{
+				{
+					Name: "list",
+					Description: `List tasks in the current workspace.
+
+By default, completed tasks are hidden.`,
+					Exec: func(ctx context.Context, s *cli.State) error { return nil },
+				},
+			},
+			Exec: func(ctx context.Context, s *cli.State) error { return nil },
+		}
+
+		require.NoError(t, cli.Parse(root, nil))
+		output := Help(root)
+		require.Contains(t, output, "list    List tasks in the current workspace.")
+		require.NotContains(t, output, "By default, completed tasks are hidden.")
+	})
 }
 
 func TestCommandHelpUsesCustomHook(t *testing.T) {

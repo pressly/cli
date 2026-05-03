@@ -14,7 +14,8 @@ func main() {
 	root := &cli.Command{
 		Name:        "echo",
 		Usage:       "echo [flags] <text>...",
-		Description: "echo is a simple command that prints the provided text",
+		Summary:     "Print text",
+		Description: "echo prints the provided text.",
 		Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 			// Add a flag to capitalize the input
 			f.Bool("c", false, "capitalize the input")

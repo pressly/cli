@@ -4,11 +4,14 @@
 
 [![GoDoc](https://godoc.org/github.com/pressly/cli?status.svg)](https://pkg.go.dev/github.com/pressly/cli#pkg-index)
 [![CI](https://github.com/pressly/cli/actions/workflows/ci.yaml/badge.svg)](https://github.com/pressly/cli/actions/workflows/ci.yaml)
+[![Docs](https://img.shields.io/badge/docs-pressly.github.io%2Fcli-blue)](https://pressly.github.io/cli)
 
 An intentionally minimal Go package for building CLI applications. Extends the standard library's
 `flag` package to support [flags
 anywhere](https://mfridman.com/blog/2024/allowing-flags-anywhere-on-the-cli/) in command arguments,
 adds nested subcommands, and gets out of the way.
+
+Docs: <https://pressly.github.io/cli>
 
 ## Installation
 

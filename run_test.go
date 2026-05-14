@@ -279,4 +279,44 @@ func TestParseAndRun(t *testing.T) {
 		require.Contains(t, stdout.String(), "Usage:")
 		require.Contains(t, stdout.String(), "greet")
 	})
+
+	t.Run("prints help for missing subcommand", func(t *testing.T) {
+		t.Parallel()
+
+		stderr := bytes.NewBuffer(nil)
+		root := &Command{
+			Name: "deploy",
+			SubCommands: []*Command{
+				{
+					Name:        "service",
+					Usage:       "deploy service <command> [flags]",
+					Description: "Manage services.",
+					Flags: FlagsFunc(func(f *flag.FlagSet) {
+						f.String("config", "", "path to config file")
+					}),
+					FlagConfigs: []FlagConfig{
+						{Name: "config", Required: true},
+					},
+					SubCommands: []*Command{
+						{
+							Name:    "restart",
+							Summary: "Restart a service",
+							Exec: func(ctx context.Context, s *State) error {
+								return nil
+							},
+						},
+					},
+				},
+			},
+		}
+
+		err := ParseAndRun(context.Background(), root, []string{"service"}, &RunOptions{Stderr: stderr})
+		require.Error(t, err)
+		require.EqualError(t, err, "subcommand required")
+		require.Contains(t, stderr.String(), "Manage services.")
+		require.Contains(t, stderr.String(), "deploy service <command> [flags]")
+		require.Contains(t, stderr.String(), "restart    Restart a service")
+		require.Contains(t, stderr.String(), "--config string    path to config file (required)")
+		require.True(t, strings.HasSuffix(stderr.String(), "\n\n"))
+	})
 }

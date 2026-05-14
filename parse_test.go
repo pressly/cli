@@ -374,6 +374,99 @@ func TestParse(t *testing.T) {
 			require.ErrorContains(t, err, `command "todo nested hello": invalid boolean value "not-a-bool" for -mandatory-flag: parse error`)
 		}
 	})
+	t.Run("group command missing subcommand before required flags", func(t *testing.T) {
+		t.Parallel()
+
+		restart := &Command{
+			Name: "restart",
+			Exec: func(ctx context.Context, s *State) error {
+				return nil
+			},
+		}
+		service := &Command{
+			Name:  "service",
+			Usage: "deploy service <command> [flags]",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.String("config", "", "path to config file")
+			}),
+			FlagConfigs: []FlagConfig{
+				{Name: "config", Required: true},
+			},
+			SubCommands: []*Command{restart},
+		}
+		root := &Command{
+			Name:        "deploy",
+			SubCommands: []*Command{service},
+		}
+
+		err := Parse(root, []string{"service"})
+		require.Error(t, err)
+		require.EqualError(t, err, "subcommand required")
+		require.Equal(t, service, root.state.Cmd)
+
+		var usageErr *usageError
+		require.True(t, errors.As(err, &usageErr))
+	})
+	t.Run("group command required flags apply to selected child", func(t *testing.T) {
+		t.Parallel()
+
+		restart := &Command{
+			Name: "restart",
+			Exec: func(ctx context.Context, s *State) error {
+				return nil
+			},
+		}
+		service := &Command{
+			Name: "service",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.String("config", "", "path to config file")
+			}),
+			FlagConfigs: []FlagConfig{
+				{Name: "config", Required: true},
+			},
+			SubCommands: []*Command{restart},
+		}
+		root := &Command{
+			Name:        "deploy",
+			SubCommands: []*Command{service},
+		}
+
+		err := Parse(root, []string{"service", "restart"})
+		require.Error(t, err)
+		require.EqualError(t, err, `command "deploy service restart": required flag "-config" not set`)
+	})
+	t.Run("runnable command with subcommands still checks required flags", func(t *testing.T) {
+		t.Parallel()
+
+		service := &Command{
+			Name: "service",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.String("config", "", "path to config file")
+			}),
+			FlagConfigs: []FlagConfig{
+				{Name: "config", Required: true},
+			},
+			Exec: func(ctx context.Context, s *State) error {
+				return nil
+			},
+			SubCommands: []*Command{
+				{
+					Name: "restart",
+					Exec: func(ctx context.Context, s *State) error {
+						return nil
+					},
+				},
+			},
+		}
+		root := &Command{
+			Name:        "deploy",
+			SubCommands: []*Command{service},
+		}
+
+		err := Parse(root, []string{"service"})
+		require.Error(t, err)
+		require.EqualError(t, err, `command "deploy service": required flag "-config" not set`)
+	})
 	t.Run("unknown required flag set by cli author", func(t *testing.T) {
 		t.Parallel()
 		cmd := &Command{

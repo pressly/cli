@@ -61,11 +61,15 @@ func Parse(root *Command, args []string) error {
 		return fmt.Errorf("command %q: %w", getCommandPath(root.state.path), err)
 	}
 
+	root.state.Args = collectArgs(root.state.path, combinedFlags.Args(), remainingArgs)
+
+	if current.Exec == nil && len(current.SubCommands) > 0 {
+		return UsageErrorf("subcommand required")
+	}
+
 	if err := checkRequiredFlags(root.state.path, combinedFlags); err != nil {
 		return err
 	}
-
-	root.state.Args = collectArgs(root.state.path, combinedFlags.Args(), remainingArgs)
 
 	if current.Exec == nil {
 		return fmt.Errorf("command %q: no exec function defined", getCommandPath(root.state.path))

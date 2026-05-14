@@ -96,6 +96,12 @@ func ParseAndRun(ctx context.Context, root *Command, args []string, options *Run
 			_, _ = fmt.Fprintln(options.Stdout, help(root))
 			return nil
 		}
+		var usageErr *usageError
+		if errors.As(err, &usageErr) {
+			options = checkAndSetRunOptions(options)
+			_, _ = fmt.Fprintf(options.Stderr, "%s\n\n", help(root))
+			return usageErr.Unwrap()
+		}
 		return err
 	}
 	return Run(ctx, root, options)

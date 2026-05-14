@@ -23,6 +23,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `Command.Description` for longer command help text
 - **BREAKING**: Rename `FlagOption` to `FlagConfig` and `Command.FlagOptions` to
   `Command.FlagConfigs`
+- Commands with subcommands and no `Exec` now report a usage error when no child command is
+  selected, before enforcing required flags inherited by child commands
 - Help output keeps the default automatic `--help` behavior through `ParseAndRun`; `Command.Help`
   replaces the generated help string when a command needs full control
 

@@ -55,9 +55,6 @@ func list() *cli.Command {
 		FlagConfigs: []cli.FlagConfig{
 			{Name: "file", Required: true},
 		},
-		Exec: func(ctx context.Context, s *cli.State) error {
-			return cli.UsageErrorf("subcommand required")
-		},
 		SubCommands: []*cli.Command{
 			listToday(),
 			listOverdue(),
@@ -129,9 +126,6 @@ func task() *cli.Command {
 			{Name: "file", Required: true},
 		},
 		Summary: "Manage tasks",
-		Exec: func(ctx context.Context, s *cli.State) error {
-			return cli.UsageErrorf("subcommand required")
-		},
 		SubCommands: []*cli.Command{
 			taskAdd(),
 			taskDone(),

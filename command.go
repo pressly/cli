@@ -73,7 +73,8 @@ type Command struct {
 	//
 	// When a command has SubCommands, the first non-flag argument must match one of them. An
 	// unknown name returns an "unknown command" error with suggestions. Commands without
-	// SubCommands pass any non-flag arguments through to [State.Args].
+	// SubCommands pass any non-flag arguments through to [State.Args]. Leave [Command.Exec] nil on
+	// a command that only groups subcommands; selecting it without a child returns a usage error.
 	SubCommands []*Command
 
 	// Exec is the function that runs when this command is picked. It is given a [State] holding the

@@ -124,6 +124,9 @@ Available Commands:
   list    List tasks
 ```
 
+When a command only groups subcommands, leave `Exec` unset. Selecting it without a child command
+returns a usage error and shows that command's help.
+
 `Description` is the longer text shown at the top of that command's own help:
 
 ```text

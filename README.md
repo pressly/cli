@@ -22,10 +22,21 @@ Requires Go 1.21 or higher.
 
 ```go
 root := &cli.Command{
-	Name:    "greet",
-	Summary: "Print a greeting",
+	Name:    "echo",
+	Usage:   "echo [flags] <text>...",
+	Summary: "Print text",
+	Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
+		f.Bool("capitalize", false, "capitalize the input")
+	}),
+	FlagConfigs: []cli.FlagConfig{
+		{Name: "capitalize", Short: "c"},
+	},
 	Exec: func(ctx context.Context, s *cli.State) error {
-		fmt.Fprintln(s.Stdout, "hello, world!")
+		text := strings.Join(s.Args, " ")
+		if cli.GetFlag[bool](s, "capitalize") {
+			text = strings.ToUpper(text)
+		}
+		fmt.Fprintln(s.Stdout, text)
 		return nil
 	},
 }
@@ -42,10 +53,13 @@ resolved command. For applications that need work between parsing and execution,
 The command above gets usable help without any extra setup:
 
 ```text
-Print a greeting
+Print text
 
 Usage:
-  greet
+  echo [flags] <text>...
+
+Flags:
+  -c, --capitalize    capitalize the input
 ```
 
 ## Flags

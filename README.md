@@ -188,9 +188,14 @@ underlying error. Normal errors are returned unchanged.
 
 For command-aware errors, use `s.Cmd.Path()` to get the resolved command path.
 
-## Usage Syntax
+## Usage Strings
 
-See [docs/usage-syntax.md](docs/usage-syntax.md) for conventions used in usage strings.
+Set `Command.Usage` when the default usage line is too broad. A common convention is to write
+required values as `<name>`, optional values as `[name]`, and repeated values with `...`:
+
+```go
+Usage: "echo [flags] <text>..."
+```
 
 ## Status
 

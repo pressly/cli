@@ -129,6 +129,9 @@ func task() *cli.Command {
 			{Name: "file", Required: true},
 		},
 		Summary: "Manage tasks",
+		Exec: func(ctx context.Context, s *cli.State) error {
+			return cli.UsageErrorf("subcommand required")
+		},
 		SubCommands: []*cli.Command{
 			taskAdd(),
 			taskDone(),

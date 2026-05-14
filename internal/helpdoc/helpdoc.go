@@ -274,21 +274,19 @@ func collectFlags(path []Command) []flagInfo {
 		inherited := i < terminalIdx
 		meta := flagConfigMap(cmd.FlagConfigs)
 		cmd.Flags.VisitAll(func(f *flag.Flag) {
+			cfg := meta[f.Name]
+			if inherited && cfg.Local {
+				return
+			}
 			info := flagInfo{
 				name:         f.Name,
+				short:        cfg.Short,
 				usage:        f.Usage,
 				defaultValue: f.DefValue,
 				placeholder:  flagTypeName(f),
+				required:     cfg.Required,
+				inherited:    inherited,
 			}
-			if cfg, ok := meta[f.Name]; ok {
-				info.short = cfg.Short
-				info.required = cfg.Required
-				info.local = cfg.Local
-			}
-			if inherited && info.local {
-				return
-			}
-			info.inherited = inherited
 			info.defaultValue = flagDefault(info.defaultValue, info.placeholder, info.required)
 			flags = append(flags, info)
 		})
@@ -343,7 +341,6 @@ type flagInfo struct {
 	usage        string
 	defaultValue string
 	required     bool
-	local        bool
 	inherited    bool
 }
 

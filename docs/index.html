@@ -30,9 +30,9 @@
       <div class="nav-menu">
         <a class="nav-menu-trigger" href="#subpackages" aria-haspopup="true">Subpackages <span class="caret" aria-hidden="true">&#x25BC;</span></a>
         <div class="nav-menu-items" role="menu">
-          <a href="flagtype.html" role="menuitem">flagtype</a>
-          <a href="graceful.html" role="menuitem">graceful</a>
-          <a href="xflag.html" role="menuitem">xflag</a>
+          <a href="flagtype/" role="menuitem">flagtype</a>
+          <a href="graceful/" role="menuitem">graceful</a>
+          <a href="xflag/" role="menuitem">xflag</a>
         </div>
       </div>
       <a href="#why">But why?</a>
@@ -229,20 +229,20 @@ Inherited Flags:
     <h2>Subpackages</h2>
     <p>Optional helpers that ship in this repo. Each one stands alone; use them where they fit.</p>
 
-    <h3 id="sub-flagtype"><a href="flagtype.html">flagtype</a></h3>
+    <h3 id="sub-flagtype"><a href="flagtype/">flagtype</a></h3>
     <p>Common <code>flag.Value</code> implementations: string slices, enums, maps, URLs, regexes. Register a value with <code>f.Var()</code> and read it back with the matching <code>cli.GetFlag[T]</code>.</p>
 <pre><code class="language-go">f.Var(flagtype.Enum("json", "yaml", "table"), "format", "output format")
 
 format := cli.GetFlag[string](state, "format")</code></pre>
 
-    <h3 id="sub-graceful"><a href="graceful.html">graceful</a></h3>
+    <h3 id="sub-graceful"><a href="graceful/">graceful</a></h3>
     <p>Signal handling and shutdown semantics for long-lived processes: servers, workers, batch jobs. First Ctrl+C cancels the context for clean shutdown; second forces an exit. Independent of <code>cli</code>.</p>
 <pre><code class="language-go">graceful.Run(
     graceful.ListenAndServe(server, 15*time.Second),
     graceful.WithTerminationTimeout(30*time.Second),
 )</code></pre>
 
-    <h3 id="sub-xflag"><a href="xflag.html">xflag</a></h3>
+    <h3 id="sub-xflag"><a href="xflag/">xflag</a></h3>
     <p>A drop-in replacement for <code>flag.Parse</code> that accepts flags anywhere in the argument list. Used by <code>cli</code> internally, also usable on its own with a stdlib <code>*flag.FlagSet</code>.</p>
 <pre><code class="language-go">err := xflag.ParseToEnd(f, os.Args[1:])</code></pre>
   </section>
@@ -265,7 +265,7 @@ f.Duration("timeout", 5*time.Second, "request timeout")</code></pre>
     <p>Most CLI libraries ship their own flag system and then re-implement bool, int, string, duration, and the rest. That is a lot of surface area for very little benefit; this library doesn't reach for it. Custom types implement <code>flag.Value</code> the standard way.</p>
 
     <h3 id="why-flagtype">Custom flag types follow the same pattern</h3>
-    <p>The <a href="flagtype.html"><code>flagtype</code></a> subpackage currently provides the types most CLIs reach for: slices, enums, maps, URLs, and regexes. Each constructor returns a value that implements <code>flag.Value</code> and registers through <code>f.Var()</code>, the same way custom types have always plugged into the standard <code>flag</code> package:</p>
+    <p>The <a href="flagtype/"><code>flagtype</code></a> subpackage currently provides the types most CLIs reach for: slices, enums, maps, URLs, and regexes. Each constructor returns a value that implements <code>flag.Value</code> and registers through <code>f.Var()</code>, the same way custom types have always plugged into the standard <code>flag</code> package:</p>
 <pre><code class="language-go">f.Bool("verbose", false, "enable verbose output")
 f.String("output", "", "output file")
 f.Var(flagtype.StringSlice(), "tag", "add a tag (repeatable)")
@@ -277,7 +277,7 @@ f.Var(flagtype.URL(), "endpoint", "API endpoint")</code></pre>
 <pre><code class="language-bash">todo --verbose add buy milk
 todo add --verbose buy milk
 todo add buy milk --verbose</code></pre>
-    <p>The standard <code>flag</code> package stops parsing at the first positional, so <code>cmd build foo --verbose</code> would treat <code>--verbose</code> as a positional. That's not what modern CLI users expect, so this library uses the <a href="xflag.html"><code>xflag</code></a> package, which also ships standalone for callers who want flags-anywhere behavior without the rest of <code>cli</code>.</p>
+    <p>The standard <code>flag</code> package stops parsing at the first positional, so <code>cmd build foo --verbose</code> would treat <code>--verbose</code> as a positional. That's not what modern CLI users expect, so this library uses the <a href="xflag/"><code>xflag</code></a> package, which also ships standalone for callers who want flags-anywhere behavior without the rest of <code>cli</code>.</p>
 
     <h3 id="why-inheritance">Parent flags inherit by default</h3>
     <p>A flag defined on the root command is visible from every subcommand without being redeclared. <code>--verbose</code> on <code>todo</code> works on <code>todo list</code> and <code>todo add</code> automatically.</p>
@@ -302,7 +302,7 @@ output  := state.GetFlag[string]("output")</code></pre>
     <p>Compose those concerns as a caller. For color and styled output, reach for <a href="https://github.com/charmbracelet/lipgloss" target="_blank" rel="noopener">lipgloss</a> or <a href="https://github.com/fatih/color" target="_blank" rel="noopener">fatih/color</a>. For prompts, <a href="https://github.com/charmbracelet/huh" target="_blank" rel="noopener">huh</a> or <a href="https://github.com/manifoldco/promptui" target="_blank" rel="noopener">promptui</a>. For configuration, <a href="https://github.com/spf13/viper" target="_blank" rel="noopener">viper</a> or <a href="https://github.com/knadh/koanf" target="_blank" rel="noopener">koanf</a>. For env-var binding, <a href="https://github.com/kelseyhightower/envconfig" target="_blank" rel="noopener">envconfig</a>. Pick whichever you like. The library has no opinion, and your binary's transitive dependency tree is whatever you put there.</p>
 
     <h3 id="why-graceful">Auxiliary packages live alongside, not inside, <code>cli</code></h3>
-    <p>The repo ships a few auxiliary packages: currently <a href="flagtype.html"><code>flagtype</code></a>, <a href="graceful.html"><code>graceful</code></a>, and <a href="xflag.html"><code>xflag</code></a>, with room for more. Each is intentionally separate from the core. None import <code>cli</code>, and <code>cli</code> does not import them (except <code>xflag</code>, which <code>cli</code> uses internally to do its parsing).</p>
+    <p>The repo ships a few auxiliary packages: currently <a href="flagtype/"><code>flagtype</code></a>, <a href="graceful/"><code>graceful</code></a>, and <a href="xflag/"><code>xflag</code></a>, with room for more. Each is intentionally separate from the core. None import <code>cli</code>, and <code>cli</code> does not import them (except <code>xflag</code>, which <code>cli</code> uses internally to do its parsing).</p>
     <p>They live here because the same problems show up in almost every CLI binary, and shipping them in the same repo keeps the boilerplate out of every <code>main</code> without bloating the core library. A package earns a place here only if it depends solely on the standard library, stands alone, and solves a problem any CLI author would otherwise solve themselves the same way.</p>
 
     <h3 id="why-lineage">Inspired by <code>ff/v3</code></h3>

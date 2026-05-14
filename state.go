@@ -1,37 +1,46 @@
 package cli
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 )
 
-// State holds command information during Exec function execution, allowing child commands to access
-// parent flags. Use [GetFlag] to get flag values across the command hierarchy.
+// State is the value passed to [Command.Exec]. It holds the parsed inputs the command needs to run.
 type State struct {
-	// Args contains the remaining arguments after flag parsing.
+	// Args holds the positional arguments left after the command name and flags are parsed.
+	// Anything after "--" is included as-is, even if it looks like a flag.
 	Args []string
 
-	// Standard I/O streams.
+	// Stdin, Stdout, and Stderr are the streams to use in your command code instead of os.Stdin,
+	// os.Stdout, and os.Stderr. Tests can swap them via [RunOptions].
 	Stdin          io.Reader
 	Stdout, Stderr io.Writer
+
+	// Cmd is the command that was picked. Call Cmd.Path() to get the full list of commands from the
+	// root down, useful for error messages that include the command path.
+	Cmd *Command
 
 	// path is the command hierarchy from the root command to the current command. The root command
 	// is the first element in the path, and the terminal command is the last element.
 	path []*Command
 }
 
-// GetFlag retrieves a flag value by name from the command hierarchy. It first checks the current
-// command's flags, then walks up through parent commands.
+// GetFlag returns the value of a flag as type T. Call it from inside [Command.Exec] with the same
+// Go type that was used when the flag was defined.
 //
-// If the flag doesn't exist or if the type doesn't match the requested type T an error will be
-// raised in the Run function. This is an internal error and should never happen in normal usage.
-// This ensures flag-related programming errors are caught early during development.
+// GetFlag looks for the flag on the picked command first, then in its parent commands. A flag
+// defined on the root command can be read from any subcommand. An unknown flag name or a wrong type
+// is a programming error: GetFlag panics, and [Run] catches the panic and returns the error.
 //
-//	verbose := GetFlag[bool](state, "verbose")
-//	count := GetFlag[int](state, "count")
-//	path := GetFlag[string](state, "path")
+//	verbose := cli.GetFlag[bool](s, "verbose")
+//	count   := cli.GetFlag[int](s, "count")
+//	path    := cli.GetFlag[string](s, "path")
 func GetFlag[T any](s *State, name string) T {
+	if s == nil {
+		panic(&internalError{err: errors.New("state is nil")})
+	}
 	// Try to find the flag in each command's flag set, starting from the current command
 	for i := len(s.path) - 1; i >= 0; i-- {
 		cmd := s.path[i]

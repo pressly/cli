@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"flag"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -22,10 +23,13 @@ func TestUsageGeneration(t *testing.T) {
 		err := Parse(cmd, []string{})
 		require.NoError(t, err)
 
-		output := DefaultUsage(cmd)
+		output := help(cmd)
 		require.NotEmpty(t, output)
 		require.Contains(t, output, "simple")
 		require.Contains(t, output, "Usage:")
+		require.Contains(t, output, "  simple")
+		require.NotContains(t, output, "[flags]")
+		require.NotContains(t, output, "Flags:")
 	})
 
 	t.Run("usage with flags", func(t *testing.T) {
@@ -44,8 +48,9 @@ func TestUsageGeneration(t *testing.T) {
 		err := Parse(cmd, []string{})
 		require.NoError(t, err)
 
-		output := DefaultUsage(cmd)
+		output := help(cmd)
 		require.Contains(t, output, "withflags")
+		require.Contains(t, output, "withflags [flags]")
 		require.Contains(t, output, "-verbose")
 		require.Contains(t, output, "-config")
 		require.Contains(t, output, "-count")
@@ -60,8 +65,8 @@ func TestUsageGeneration(t *testing.T) {
 		cmd := &Command{
 			Name: "parent",
 			SubCommands: []*Command{
-				{Name: "child1", ShortHelp: "first child command", Exec: func(ctx context.Context, s *State) error { return nil }},
-				{Name: "child2", ShortHelp: "second child command", Exec: func(ctx context.Context, s *State) error { return nil }},
+				{Name: "child1", Description: "first child command", Exec: func(ctx context.Context, s *State) error { return nil }},
+				{Name: "child2", Description: "second child command", Exec: func(ctx context.Context, s *State) error { return nil }},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
 		}
@@ -69,28 +74,30 @@ func TestUsageGeneration(t *testing.T) {
 		err := Parse(cmd, []string{})
 		require.NoError(t, err)
 
-		output := DefaultUsage(cmd)
+		output := help(cmd)
 		require.Contains(t, output, "parent")
 		require.Contains(t, output, "child1")
 		require.Contains(t, output, "child2")
 		require.Contains(t, output, "first child command")
 		require.Contains(t, output, "second child command")
 		require.Contains(t, output, "Available Commands:")
+		require.Contains(t, output, "parent <command>")
+		require.NotContains(t, output, "[flags]")
 	})
 
 	t.Run("usage with flags and subcommands", func(t *testing.T) {
 		t.Parallel()
 
 		cmd := &Command{
-			Name:      "complex",
-			ShortHelp: "complex command with flags and subcommands",
+			Name:        "complex",
+			Description: "complex command with flags and subcommands",
 			Flags: FlagsFunc(func(fset *flag.FlagSet) {
 				fset.Bool("global", false, "global flag")
 			}),
 			SubCommands: []*Command{
 				{
-					Name:      "sub",
-					ShortHelp: "subcommand with its own flags",
+					Name:        "sub",
+					Description: "subcommand with its own flags",
 					Flags: FlagsFunc(func(fset *flag.FlagSet) {
 						fset.String("local", "", "local flag")
 					}),
@@ -103,7 +110,7 @@ func TestUsageGeneration(t *testing.T) {
 		err := Parse(cmd, []string{})
 		require.NoError(t, err)
 
-		output := DefaultUsage(cmd)
+		output := help(cmd)
 		require.Contains(t, output, "complex")
 		require.Contains(t, output, "complex command with flags and subcommands")
 		require.Contains(t, output, "-global")
@@ -117,8 +124,8 @@ func TestUsageGeneration(t *testing.T) {
 
 		longDesc := "This is a very long description that should be wrapped properly when displayed in the usage output to ensure readability and proper formatting"
 		cmd := &Command{
-			Name:      "longdesc",
-			ShortHelp: longDesc,
+			Name:        "longdesc",
+			Description: longDesc,
 			Flags: FlagsFunc(func(fset *flag.FlagSet) {
 				fset.String("long-flag", "", longDesc)
 			}),
@@ -128,7 +135,7 @@ func TestUsageGeneration(t *testing.T) {
 		err := Parse(cmd, []string{})
 		require.NoError(t, err)
 
-		output := DefaultUsage(cmd)
+		output := help(cmd)
 		require.Contains(t, output, "longdesc")
 		require.Contains(t, output, "very long description")
 		require.Contains(t, output, "-long-flag")
@@ -149,7 +156,7 @@ func TestUsageGeneration(t *testing.T) {
 		err := Parse(cmd, []string{})
 		require.NoError(t, err)
 
-		output := DefaultUsage(cmd)
+		output := help(cmd)
 		require.Contains(t, output, "globalonly")
 		require.Contains(t, output, "-debug")
 		require.Contains(t, output, "-output")
@@ -163,9 +170,9 @@ func TestUsageGeneration(t *testing.T) {
 		var subcommands []*Command
 		for i := 0; i < 10; i++ {
 			subcommands = append(subcommands, &Command{
-				Name:      "cmd" + string(rune('0'+i)),
-				ShortHelp: "command number " + string(rune('0'+i)),
-				Exec:      func(ctx context.Context, s *State) error { return nil },
+				Name:        "cmd" + string(rune('0'+i)),
+				Description: "command number " + string(rune('0'+i)),
+				Exec:        func(ctx context.Context, s *State) error { return nil },
 			})
 		}
 
@@ -178,7 +185,7 @@ func TestUsageGeneration(t *testing.T) {
 		err := Parse(cmd, []string{})
 		require.NoError(t, err)
 
-		output := DefaultUsage(cmd)
+		output := help(cmd)
 		require.Contains(t, output, "manychildren")
 		for i := 0; i < 10; i++ {
 			require.Contains(t, output, "cmd"+string(rune('0'+i)))
@@ -197,7 +204,7 @@ func TestUsageGeneration(t *testing.T) {
 		err := Parse(cmd, []string{})
 		require.NoError(t, err)
 
-		output := DefaultUsage(cmd)
+		output := help(cmd)
 		require.Contains(t, output, "empty")
 		require.NotEmpty(t, output)
 	})
@@ -206,19 +213,19 @@ func TestUsageGeneration(t *testing.T) {
 		t.Parallel()
 
 		child := &Command{
-			Name:      "child",
-			ShortHelp: "nested child command",
-			Exec:      func(ctx context.Context, s *State) error { return nil },
+			Name:        "child",
+			Description: "nested child command",
+			Exec:        func(ctx context.Context, s *State) error { return nil },
 		}
 		parent := &Command{
 			Name:        "parent",
-			ShortHelp:   "parent command",
+			Description: "parent command",
 			SubCommands: []*Command{child},
 			Exec:        func(ctx context.Context, s *State) error { return nil },
 		}
 		root := &Command{
 			Name:        "root",
-			ShortHelp:   "root command",
+			Description: "root command",
 			SubCommands: []*Command{parent},
 			Exec:        func(ctx context.Context, s *State) error { return nil },
 		}
@@ -226,7 +233,7 @@ func TestUsageGeneration(t *testing.T) {
 		err := Parse(root, []string{})
 		require.NoError(t, err)
 
-		output := DefaultUsage(root)
+		output := help(root)
 		require.Contains(t, output, "root")
 		require.Contains(t, output, "root command")
 		require.Contains(t, output, "parent")
@@ -253,7 +260,7 @@ func TestUsageGeneration(t *testing.T) {
 		err := Parse(cmd, []string{})
 		require.NoError(t, err)
 
-		output := DefaultUsage(cmd)
+		output := help(cmd)
 		require.Contains(t, output, "-bool-flag")
 		require.Contains(t, output, "-string-flag")
 		require.Contains(t, output, "-int-flag")
@@ -274,14 +281,14 @@ func TestUsageGeneration(t *testing.T) {
 				fset.Bool("debug", false, "enable debug mode")
 				fset.String("config", "", "config file path")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "config", Required: true},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
 		}
 
 		// Usage should work even before parsing and show flags
-		output := DefaultUsage(cmd)
+		output := help(cmd)
 		require.NotEmpty(t, output)
 		require.Contains(t, output, "Flags:")
 		require.Contains(t, output, "-debug")
@@ -301,8 +308,50 @@ func TestUsageGeneration(t *testing.T) {
 		err := Parse(cmd, []string{})
 		require.NoError(t, err)
 
-		output := DefaultUsage(cmd)
+		output := help(cmd)
 		require.Contains(t, output, "custom [options] <file>")
+	})
+
+	t.Run("help hook replaces default text", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &Command{
+			Name:        "custom",
+			Description: "custom command",
+			Help: func(c *Command) string {
+				require.Equal(t, "custom", c.Name)
+				return "custom help\n\nExamples:\n  custom example\n"
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+
+		err := Parse(cmd, []string{})
+		require.NoError(t, err)
+
+		output := help(cmd)
+		require.NotContains(t, output, "custom command")
+		require.Contains(t, output, "custom help")
+		require.Contains(t, output, "Examples:")
+		require.Contains(t, output, "custom example")
+		require.False(t, strings.HasSuffix(output, "\n"))
+	})
+
+	t.Run("help hook can return a plain string", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &Command{
+			Name: "custom",
+			Help: func(c *Command) string {
+				return "custom help"
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+
+		err := Parse(cmd, []string{})
+		require.NoError(t, err)
+
+		output := help(cmd)
+		require.Equal(t, "custom help", output)
 	})
 
 	t.Run("usage with inherited and local flags", func(t *testing.T) {
@@ -326,7 +375,7 @@ func TestUsageGeneration(t *testing.T) {
 		err := Parse(parent, []string{"child"})
 		require.NoError(t, err)
 
-		output := DefaultUsage(parent)
+		output := help(parent)
 		require.Contains(t, output, "-local")
 		require.Contains(t, output, "-global")
 		require.Contains(t, output, "local flag")
@@ -334,7 +383,76 @@ func TestUsageGeneration(t *testing.T) {
 	})
 }
 
-func TestWriteFlagSection(t *testing.T) {
+func TestHelpSummaryAndDescription(t *testing.T) {
+	t.Parallel()
+
+	child := &Command{
+		Name:    "list",
+		Summary: "List tasks",
+		Description: `List tasks in the current workspace.
+
+By default, completed tasks are hidden.`,
+		Exec: func(ctx context.Context, s *State) error { return nil },
+	}
+	root := &Command{
+		Name:        "todo",
+		Summary:     "Manage tasks",
+		SubCommands: []*Command{child},
+		Exec:        func(ctx context.Context, s *State) error { return nil },
+	}
+
+	require.NoError(t, Parse(root, nil))
+	output := help(root)
+	require.Contains(t, output, "list    List tasks")
+	require.NotContains(t, output, "By default, completed tasks are hidden.")
+
+	require.NoError(t, Parse(root, []string{"list"}))
+	output = help(root)
+	require.Contains(t, output, "List tasks in the current workspace.")
+	require.Contains(t, output, "By default, completed tasks are hidden.")
+}
+
+func TestHelpDescriptionFallbacks(t *testing.T) {
+	t.Parallel()
+
+	t.Run("summary is shown in command help when description is empty", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &Command{
+			Name:    "greet",
+			Summary: "Print a greeting",
+			Exec:    func(ctx context.Context, s *State) error { return nil },
+		}
+
+		require.NoError(t, Parse(cmd, nil))
+		require.Contains(t, help(cmd), "Print a greeting")
+	})
+
+	t.Run("description first line is shown in command lists when summary is empty", func(t *testing.T) {
+		t.Parallel()
+
+		root := &Command{
+			Name: "todo",
+			SubCommands: []*Command{
+				{
+					Name: "list",
+					Description: `List tasks in the current workspace.
+
+By default, completed tasks are hidden.`,
+					Exec: func(ctx context.Context, s *State) error { return nil },
+				},
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+
+		require.NoError(t, Parse(root, nil))
+		output := help(root)
+		require.Contains(t, output, "list    List tasks in the current workspace.")
+		require.NotContains(t, output, "By default, completed tasks are hidden.")
+	})
+}
+
+func TestFlagHelp(t *testing.T) {
 	t.Parallel()
 
 	t.Run("non-zero defaults shown and type hints", func(t *testing.T) {
@@ -353,7 +471,7 @@ func TestWriteFlagSection(t *testing.T) {
 		err := Parse(cmd, []string{})
 		require.NoError(t, err)
 
-		output := DefaultUsage(cmd)
+		output := help(cmd)
 		require.Contains(t, output, "Flags:")
 		require.Contains(t, output, "-verbose")
 		require.Contains(t, output, "-config string")
@@ -384,7 +502,7 @@ func TestWriteFlagSection(t *testing.T) {
 		err := Parse(cmd, []string{})
 		require.NoError(t, err)
 
-		output := DefaultUsage(cmd)
+		output := help(cmd)
 		// Zero-value defaults should not appear
 		require.NotContains(t, output, "(default: false)")
 		require.NotContains(t, output, "(default: 0)")
@@ -406,7 +524,7 @@ func TestWriteFlagSection(t *testing.T) {
 				fset.String("file", "", "path to file")
 				fset.String("output", "stdout", "output destination")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "file", Required: true},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -415,12 +533,50 @@ func TestWriteFlagSection(t *testing.T) {
 		err := Parse(cmd, []string{"-file", "test.txt"})
 		require.NoError(t, err)
 
-		output := DefaultUsage(cmd)
+		output := help(cmd)
 		require.Contains(t, output, "(required)")
 		// Required flag should not also show a default
 		require.NotContains(t, output, "(default: )")
 		// Non-required flag with non-zero default should show default
 		require.Contains(t, output, "(default: stdout)")
+	})
+
+	t.Run("long flag descriptions wrap", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &Command{
+			Name: "test",
+			Flags: FlagsFunc(func(fset *flag.FlagSet) {
+				fset.String("asdf", "", "bar")
+				fset.Bool("c", false, strings.Repeat("capitalize the input ", 6))
+			}),
+			FlagConfigs: []FlagConfig{
+				{Name: "c", Required: true},
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+
+		err := Parse(cmd, []string{"-c"})
+		require.NoError(t, err)
+
+		output := help(cmd)
+		require.Contains(t, output, "Flags:")
+		require.Contains(t, output, "  --asdf string    bar")
+		require.Contains(t, output, "(required)")
+
+		inFlags := false
+		for _, line := range strings.Split(output, "\n") {
+			if line == "Flags:" {
+				inFlags = true
+				continue
+			}
+			if inFlags && line == "" {
+				break
+			}
+			if inFlags {
+				require.LessOrEqualf(t, len(line), 80, "flag help line should wrap: %q", line)
+			}
+		}
 	})
 
 	t.Run("short flags displayed", func(t *testing.T) {
@@ -433,7 +589,7 @@ func TestWriteFlagSection(t *testing.T) {
 				fset.String("output", "", "output file")
 				fset.String("config", "", "config file path")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "verbose", Short: "v"},
 				{Name: "output", Short: "o"},
 			},
@@ -443,7 +599,7 @@ func TestWriteFlagSection(t *testing.T) {
 		err := Parse(cmd, []string{})
 		require.NoError(t, err)
 
-		output := DefaultUsage(cmd)
+		output := help(cmd)
 		// Flags with short aliases show both forms
 		require.Contains(t, output, "-v, --verbose")
 		require.Contains(t, output, "-o, --output string")
@@ -466,7 +622,7 @@ func TestWriteFlagSection(t *testing.T) {
 		err := Parse(cmd, []string{})
 		require.NoError(t, err)
 
-		output := DefaultUsage(cmd)
+		output := help(cmd)
 		// Without any short flags, no extra padding should be added
 		require.Contains(t, output, "  --verbose")
 		require.Contains(t, output, "  --config string")
@@ -485,7 +641,7 @@ func TestWriteFlagSection(t *testing.T) {
 		err := Parse(cmd, []string{})
 		require.NoError(t, err)
 
-		output := DefaultUsage(cmd)
+		output := help(cmd)
 		require.NotContains(t, output, "Flags:")
 		require.NotContains(t, output, "Inherited Flags:")
 	})

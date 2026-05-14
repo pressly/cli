@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -13,20 +14,48 @@ import (
 	"sync"
 )
 
-// RunOptions specifies options for running a command.
+// RunOptions replaces the standard streams used by [Run] and [ParseAndRun]. Pass nil for normal
+// programs to use os.Stdin, os.Stdout, and os.Stderr.
+//
+// Use RunOptions in tests, or anywhere you need to capture output or supply your own input.
 type RunOptions struct {
-	// Stdin, Stdout, and Stderr are the standard input, output, and error streams for the command.
-	// If any of these are nil, the command will use the default streams ([os.Stdin], [os.Stdout],
-	// and [os.Stderr], respectively).
+	// Stdin, Stdout, and Stderr replace os.Stdin, os.Stdout, and os.Stderr when set. A nil field
+	// falls back to its os equivalent.
 	Stdin          io.Reader
 	Stdout, Stderr io.Writer
 }
 
-// Run executes the current command. It returns an error if the command has not been parsed or if
-// the command has no execution function.
+type usageError struct {
+	err error
+}
+
+// UsageErrorf returns an error that means the command was used incorrectly. Return it from
+// [Command.Exec] when the command itself was right but the arguments or flag combination are wrong:
 //
-// The options parameter may be nil, in which case default values are used. See [RunOptions] for
-// more details.
+//	if len(s.Args) == 0 {
+//	    return cli.UsageErrorf("must supply a name")
+//	}
+//
+// When [Run] sees a UsageErrorf error, it prints the command's help to stderr and returns the error
+// message you passed in. Return a normal error if you do not want help printed.
+func UsageErrorf(format string, args ...any) error {
+	return &usageError{err: fmt.Errorf(format, args...)}
+}
+
+func (e *usageError) Error() string {
+	return e.err.Error()
+}
+
+func (e *usageError) Unwrap() error {
+	return e.err
+}
+
+// Run runs the command picked by a previous call to [Parse]. Use Run only when you call [Parse]
+// separately. For the common case, use [ParseAndRun].
+//
+// If [Command.Exec] returns an error created by [UsageErrorf], Run prints the command's help to
+// stderr and returns the error you passed to [UsageErrorf]. Other errors are returned as-is. A nil
+// ctx defaults to [context.Background].
 func Run(ctx context.Context, root *Command, options *RunOptions) error {
 	if ctx == nil {
 		ctx = context.Background()
@@ -49,28 +78,29 @@ func Run(ctx context.Context, root *Command, options *RunOptions) error {
 	return run(ctx, cmd, root.state)
 }
 
-// ParseAndRun is a convenience function that combines [Parse] and [Run] into a single call. It
-// parses the command hierarchy, handles help flags automatically (printing usage to stdout and
-// returning nil), and then executes the resolved command.
-//
-// This is the recommended entry point for most CLI applications:
+// ParseAndRun parses args, picks the right command, and runs its [Command.Exec]. This is the normal
+// way to start a CLI program:
 //
 //	if err := cli.ParseAndRun(ctx, root, os.Args[1:], nil); err != nil {
 //	    fmt.Fprintf(os.Stderr, "error: %v\n", err)
 //	    os.Exit(1)
 //	}
 //
-// The options parameter may be nil, in which case default values are used. See [RunOptions] for
-// more details.
-//
-// For applications that need to perform work between parsing and execution (e.g., initializing
-// resources based on parsed flags), use [Parse] and [Run] separately.
+// When the user passes -h or --help, ParseAndRun prints the picked command's help to stdout and
+// returns nil. Use [Parse] and [Run] separately when you need to do work between parsing and
+// running, such as setting up resources based on parsed flags.
 func ParseAndRun(ctx context.Context, root *Command, args []string, options *RunOptions) error {
 	if err := Parse(root, args); err != nil {
-		if errors.Is(err, ErrHelp) {
+		if errors.Is(err, flag.ErrHelp) {
 			options = checkAndSetRunOptions(options)
-			_, _ = fmt.Fprintln(options.Stdout, DefaultUsage(root))
+			_, _ = fmt.Fprintln(options.Stdout, help(root))
 			return nil
+		}
+		var usageErr *usageError
+		if errors.As(err, &usageErr) {
+			options = checkAndSetRunOptions(options)
+			_, _ = fmt.Fprintf(options.Stderr, "%s\n\n", help(root))
+			return usageErr.Unwrap()
 		}
 		return err
 	}
@@ -94,7 +124,13 @@ func run(ctx context.Context, cmd *Command, state *State) (retErr error) {
 			}
 		}
 	}()
-	return cmd.Exec(ctx, state)
+	err := cmd.Exec(ctx, state)
+	var usageErr *usageError
+	if errors.As(err, &usageErr) {
+		_, _ = fmt.Fprintf(state.Stderr, "%s\n\n", help(state.Cmd))
+		return usageErr.Unwrap()
+	}
+	return err
 }
 
 func updateState(s *State, opt *RunOptions) {

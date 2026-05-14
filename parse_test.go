@@ -38,7 +38,7 @@ func newTestState() testState {
 		Flags: FlagsFunc(func(fset *flag.FlagSet) {
 			fset.String("echo", "", "echo the message")
 		}),
-		FlagOptions: []FlagOption{
+		FlagConfigs: []FlagConfig{
 			{Name: "echo", Required: false}, // not required
 		},
 		Exec: exec,
@@ -49,7 +49,7 @@ func newTestState() testState {
 			fset.Bool("mandatory-flag", false, "mandatory flag")
 			fset.String("another-mandatory-flag", "", "another mandatory flag")
 		}),
-		FlagOptions: []FlagOption{
+		FlagConfigs: []FlagConfig{
 			{Name: "mandatory-flag", Required: true},
 			{Name: "another-mandatory-flag", Required: true},
 		},
@@ -144,6 +144,22 @@ func TestParse(t *testing.T) {
 		require.Error(t, err)
 		require.ErrorIs(t, err, flag.ErrHelp)
 		require.Empty(t, by.String())
+	})
+	t.Run("flags func setup panic returns parse error", func(t *testing.T) {
+		t.Parallel()
+
+		root := &Command{
+			Name: "root",
+			Flags: FlagsFunc(func(fset *flag.FlagSet) {
+				fset.Bool("c", false, "capitalize the input")
+				fset.Bool("c", false, "capitalize the input again")
+			}),
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+
+		err := Parse(root, nil)
+		require.Error(t, err)
+		require.EqualError(t, err, `command "root": flag -c is defined more than once`)
 	})
 	t.Run("no flags", func(t *testing.T) {
 		t.Parallel()
@@ -321,7 +337,7 @@ func TestParse(t *testing.T) {
 
 		err := Parse(s.root, nil)
 		require.Error(t, err)
-		require.ErrorContains(t, err, `subcommand in path [todo, nested] has no name`)
+		require.EqualError(t, err, `command "todo nested": subcommand has no name`)
 	})
 	t.Run("required flag", func(t *testing.T) {
 		t.Parallel()
@@ -358,17 +374,110 @@ func TestParse(t *testing.T) {
 			require.ErrorContains(t, err, `command "todo nested hello": invalid boolean value "not-a-bool" for -mandatory-flag: parse error`)
 		}
 	})
+	t.Run("group command missing subcommand before required flags", func(t *testing.T) {
+		t.Parallel()
+
+		restart := &Command{
+			Name: "restart",
+			Exec: func(ctx context.Context, s *State) error {
+				return nil
+			},
+		}
+		service := &Command{
+			Name:  "service",
+			Usage: "deploy service <command> [flags]",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.String("config", "", "path to config file")
+			}),
+			FlagConfigs: []FlagConfig{
+				{Name: "config", Required: true},
+			},
+			SubCommands: []*Command{restart},
+		}
+		root := &Command{
+			Name:        "deploy",
+			SubCommands: []*Command{service},
+		}
+
+		err := Parse(root, []string{"service"})
+		require.Error(t, err)
+		require.EqualError(t, err, "subcommand required")
+		require.Equal(t, service, root.state.Cmd)
+
+		var usageErr *usageError
+		require.True(t, errors.As(err, &usageErr))
+	})
+	t.Run("group command required flags apply to selected child", func(t *testing.T) {
+		t.Parallel()
+
+		restart := &Command{
+			Name: "restart",
+			Exec: func(ctx context.Context, s *State) error {
+				return nil
+			},
+		}
+		service := &Command{
+			Name: "service",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.String("config", "", "path to config file")
+			}),
+			FlagConfigs: []FlagConfig{
+				{Name: "config", Required: true},
+			},
+			SubCommands: []*Command{restart},
+		}
+		root := &Command{
+			Name:        "deploy",
+			SubCommands: []*Command{service},
+		}
+
+		err := Parse(root, []string{"service", "restart"})
+		require.Error(t, err)
+		require.EqualError(t, err, `command "deploy service restart": required flag "-config" not set`)
+	})
+	t.Run("runnable command with subcommands still checks required flags", func(t *testing.T) {
+		t.Parallel()
+
+		service := &Command{
+			Name: "service",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.String("config", "", "path to config file")
+			}),
+			FlagConfigs: []FlagConfig{
+				{Name: "config", Required: true},
+			},
+			Exec: func(ctx context.Context, s *State) error {
+				return nil
+			},
+			SubCommands: []*Command{
+				{
+					Name: "restart",
+					Exec: func(ctx context.Context, s *State) error {
+						return nil
+					},
+				},
+			},
+		}
+		root := &Command{
+			Name:        "deploy",
+			SubCommands: []*Command{service},
+		}
+
+		err := Parse(root, []string{"service"})
+		require.Error(t, err)
+		require.EqualError(t, err, `command "deploy service": required flag "-config" not set`)
+	})
 	t.Run("unknown required flag set by cli author", func(t *testing.T) {
 		t.Parallel()
 		cmd := &Command{
 			Name: "root",
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "some-other-flag", Required: true},
 			},
 		}
 		err := Parse(cmd, nil)
 		require.Error(t, err)
-		require.ErrorContains(t, err, `flag option references unknown flag "some-other-flag"`)
+		require.EqualError(t, err, `command "root": flag -some-other-flag is configured but not defined`)
 	})
 	t.Run("space in command name", func(t *testing.T) {
 		t.Parallel()
@@ -380,7 +489,7 @@ func TestParse(t *testing.T) {
 		}
 		err := Parse(cmd, nil)
 		require.Error(t, err)
-		require.ErrorContains(t, err, `failed to parse: command ["root", "sub command"]: name must start with a letter and contain only letters, numbers, dashes (-) or underscores (_)`)
+		require.EqualError(t, err, `command "root sub command": invalid name: must start with a letter and contain only letters, numbers, dashes, or underscores`)
 	})
 	t.Run("dash in command name", func(t *testing.T) {
 		t.Parallel()
@@ -416,7 +525,7 @@ func TestParse(t *testing.T) {
 		}
 		err := Parse(cmd, nil)
 		require.Error(t, err)
-		require.ErrorContains(t, err, `name must start with a letter`)
+		require.EqualError(t, err, `command "root 1command": invalid name: must start with a letter and contain only letters, numbers, dashes, or underscores`)
 	})
 	t.Run("command name with special characters", func(t *testing.T) {
 		t.Parallel()
@@ -428,7 +537,7 @@ func TestParse(t *testing.T) {
 		}
 		err := Parse(cmd, nil)
 		require.Error(t, err)
-		require.ErrorContains(t, err, `name must start with a letter and contain only letters, numbers, dashes (-) or underscores (_)`)
+		require.EqualError(t, err, `command "root sub@command": invalid name: must start with a letter and contain only letters, numbers, dashes, or underscores`)
 	})
 	t.Run("very long command name", func(t *testing.T) {
 		t.Parallel()
@@ -552,14 +661,14 @@ func TestParse(t *testing.T) {
 		require.NoError(t, err)
 		// Just ensure it doesn't crash and can parse the first match
 	})
-	t.Run("flag option for non-existent flag", func(t *testing.T) {
+	t.Run("flag config for non-existent flag", func(t *testing.T) {
 		t.Parallel()
 		cmd := &Command{
 			Name: "root",
 			Flags: FlagsFunc(func(fset *flag.FlagSet) {
 				fset.String("existing", "", "existing flag")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "existing", Required: true},
 				{Name: "nonexistent", Required: true},
 			},
@@ -567,7 +676,7 @@ func TestParse(t *testing.T) {
 		}
 		err := Parse(cmd, []string{"--existing=value"})
 		require.Error(t, err)
-		require.ErrorContains(t, err, `flag option references unknown flag "nonexistent"`)
+		require.EqualError(t, err, `command "root": flag -nonexistent is configured but not defined`)
 	})
 	t.Run("args with special characters", func(t *testing.T) {
 		t.Parallel()
@@ -645,7 +754,7 @@ func TestParse(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.String("port", "8080", "port number")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "port", Required: true},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -665,7 +774,7 @@ func TestParse(t *testing.T) {
 				f.Bool("force", false, "force operation")
 				f.Bool("force-all", false, "force all")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "force", Required: true},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -705,7 +814,7 @@ func TestShortFlags(t *testing.T) {
 				f.Bool("verbose", false, "enable verbose output")
 				f.String("output", "", "output file")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "verbose", Short: "v"},
 				{Name: "output", Short: "o"},
 			},
@@ -724,7 +833,7 @@ func TestShortFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.Bool("verbose", false, "enable verbose output")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "verbose", Short: "v"},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -741,7 +850,7 @@ func TestShortFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.String("name", "", "the name")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "name", Short: "n"},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -751,7 +860,7 @@ func TestShortFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.Bool("verbose", false, "verbose")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "verbose", Short: "v"},
 			},
 			SubCommands: []*Command{child},
@@ -770,7 +879,7 @@ func TestShortFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.Int("count", 0, "number of items")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "count", Short: "c"},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -789,14 +898,31 @@ func TestShortFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.Bool("verbose", false, "enable verbose output")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "vrbose", Short: "v"}, // typo in Name
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
 		}
 		err := Parse(cmd, []string{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), `flag option references unknown flag "vrbose"`)
+		require.EqualError(t, err, `command "root": flag -vrbose is configured but not defined`)
+	})
+
+	t.Run("flag config name is required", func(t *testing.T) {
+		t.Parallel()
+		cmd := &Command{
+			Name: "root",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.Bool("verbose", false, "enable verbose output")
+			}),
+			FlagConfigs: []FlagConfig{
+				{Name: "", Required: true},
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+		err := Parse(cmd, []string{})
+		require.Error(t, err)
+		require.EqualError(t, err, `command "root": flag config is missing a name`)
 	})
 
 	t.Run("short alias must be single ASCII letter", func(t *testing.T) {
@@ -806,14 +932,14 @@ func TestShortFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.Bool("verbose", false, "enable verbose output")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "verbose", Short: "vv"},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
 		}
 		err := Parse(cmd, []string{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "short alias must be a single ASCII letter")
+		require.EqualError(t, err, `command "root": flag -verbose has invalid short alias "vv"; short aliases must be one ASCII letter`)
 	})
 
 	t.Run("duplicate short alias", func(t *testing.T) {
@@ -824,7 +950,7 @@ func TestShortFlags(t *testing.T) {
 				f.Bool("verbose", false, "enable verbose output")
 				f.Bool("version", false, "show version")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "verbose", Short: "v"},
 				{Name: "version", Short: "v"},
 			},
@@ -832,7 +958,7 @@ func TestShortFlags(t *testing.T) {
 		}
 		err := Parse(cmd, []string{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), `duplicate short flag "v"`)
+		require.EqualError(t, err, `command "root": short flag -v is configured for both -verbose and -version`)
 	})
 }
 
@@ -851,7 +977,7 @@ func TestLocalFlags(t *testing.T) {
 				f.Bool("version", false, "show version")
 				f.Bool("verbose", false, "enable verbose output")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "version", Local: true},
 			},
 			SubCommands: []*Command{child},
@@ -869,7 +995,7 @@ func TestLocalFlags(t *testing.T) {
 				f.Bool("version", false, "show version")
 				f.Bool("verbose", false, "enable verbose output")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "version", Local: true},
 			},
 			SubCommands: []*Command{{
@@ -890,7 +1016,7 @@ func TestLocalFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.Bool("version", false, "show version")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "version", Local: true},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -911,7 +1037,7 @@ func TestLocalFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.String("token", "", "auth token")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "token", Required: true, Local: true},
 			},
 			SubCommands: []*Command{child},
@@ -927,7 +1053,7 @@ func TestLocalFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.String("token", "", "auth token")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "token", Required: true, Local: true},
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
@@ -952,7 +1078,7 @@ func TestLocalFlags(t *testing.T) {
 				f.Bool("version", false, "show version")
 				f.Bool("verbose", false, "enable verbose output")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "version", Local: true},
 			},
 			SubCommands: []*Command{child},
@@ -961,7 +1087,7 @@ func TestLocalFlags(t *testing.T) {
 		err := Parse(root, []string{"child", "--help"})
 		require.ErrorIs(t, err, flag.ErrHelp)
 
-		usage := DefaultUsage(root)
+		usage := help(root)
 		// --verbose should appear in inherited flags (not local)
 		assert.Contains(t, usage, "--verbose")
 		// --version should NOT appear (local to root, not inherited)
@@ -981,7 +1107,7 @@ func TestLocalFlags(t *testing.T) {
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
 				f.Bool("version", false, "show version")
 			}),
-			FlagOptions: []FlagOption{
+			FlagConfigs: []FlagConfig{
 				{Name: "version", Short: "V", Local: true},
 			},
 			SubCommands: []*Command{child},

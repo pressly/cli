@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -13,19 +12,20 @@ import (
 
 func main() {
 	root := &cli.Command{
-		Name:      "echo",
-		Usage:     "echo [flags] <text>...",
-		ShortHelp: "echo is a simple command that prints the provided text",
+		Name:        "echo",
+		Usage:       "echo [flags] <text>...",
+		Summary:     "Print text",
+		Description: "echo prints the provided text.",
 		Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 			// Add a flag to capitalize the input
 			f.Bool("c", false, "capitalize the input")
 		}),
-		FlagOptions: []cli.FlagOption{
+		FlagConfigs: []cli.FlagConfig{
 			{Name: "c", Required: true},
 		},
 		Exec: func(ctx context.Context, s *cli.State) error {
 			if len(s.Args) == 0 {
-				return errors.New("must provide text to echo, see --help")
+				return cli.UsageErrorf("must provide text to echo")
 			}
 			output := strings.Join(s.Args, " ")
 			// If -c flag is set, capitalize the output

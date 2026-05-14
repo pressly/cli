@@ -1,7 +1,10 @@
 package cli
 
 import (
+	"context"
 	"flag"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -46,5 +49,130 @@ func TestGetFlag(t *testing.T) {
 		}()
 		// Panic because author tried to access a registered flag with the wrong type
 		_ = GetFlag[int](state, "version")
+	})
+}
+
+func TestStateCommandContext(t *testing.T) {
+	t.Parallel()
+
+	t.Run("command and command path", func(t *testing.T) {
+		t.Parallel()
+
+		child := &Command{
+			Name: "child",
+			Exec: func(ctx context.Context, s *State) error {
+				require.Equal(t, "child", s.Cmd.Name)
+				require.Equal(t, []*Command{s.path[0], s.Cmd}, s.Cmd.Path())
+				return nil
+			},
+		}
+		root := &Command{
+			Name:        "root",
+			SubCommands: []*Command{child},
+		}
+
+		err := Parse(root, []string{"child"})
+		require.NoError(t, err)
+		err = Run(context.Background(), root, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("usage uses terminal custom usage", func(t *testing.T) {
+		t.Parallel()
+
+		root := &Command{
+			Name: "root",
+			SubCommands: []*Command{
+				{
+					Name: "child",
+					Help: func(c *Command) string {
+						return "Usage:\n  root child\n\nExamples:\n  root child file.txt"
+					},
+					Exec: func(ctx context.Context, s *State) error {
+						output := help(s.Cmd)
+						require.Contains(t, output, "Examples:")
+						require.Contains(t, output, "root child file.txt")
+						return nil
+					},
+				},
+			},
+		}
+
+		err := Parse(root, []string{"child"})
+		require.NoError(t, err)
+		err = Run(context.Background(), root, nil)
+		require.NoError(t, err)
+	})
+
+	t.Run("usage error prints help and returns underlying error", func(t *testing.T) {
+		t.Parallel()
+
+		root := &Command{
+			Name: "greet",
+			Exec: func(ctx context.Context, s *State) error {
+				return UsageErrorf("must supply a name")
+			},
+		}
+
+		err := Parse(root, nil)
+		require.NoError(t, err)
+		stderr := new(strings.Builder)
+		err = Run(context.Background(), root, &RunOptions{Stderr: stderr})
+		require.Error(t, err)
+		require.EqualError(t, err, "must supply a name")
+		require.Contains(t, stderr.String(), "Usage:")
+		require.Contains(t, stderr.String(), "greet")
+		require.True(t, strings.HasSuffix(stderr.String(), "\n\n"))
+	})
+
+	t.Run("usage error prints terminal command help", func(t *testing.T) {
+		t.Parallel()
+
+		root := &Command{
+			Name: "root",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.Bool("verbose", false, "enable verbose output")
+			}),
+			SubCommands: []*Command{
+				{
+					Name:        "child",
+					Description: "Run the child command",
+					Exec: func(ctx context.Context, s *State) error {
+						return UsageErrorf("missing file")
+					},
+				},
+			},
+		}
+
+		err := Parse(root, []string{"child"})
+		require.NoError(t, err)
+		stderr := new(strings.Builder)
+		err = Run(context.Background(), root, &RunOptions{Stderr: stderr})
+		require.Error(t, err)
+		require.EqualError(t, err, "missing file")
+		require.Contains(t, stderr.String(), "Run the child command")
+		require.Contains(t, stderr.String(), "root child [flags]")
+		require.Contains(t, stderr.String(), "Inherited Flags:")
+		require.Contains(t, stderr.String(), "--verbose")
+		require.True(t, strings.HasSuffix(stderr.String(), "\n\n"))
+	})
+
+	t.Run("normal error does not print help", func(t *testing.T) {
+		t.Parallel()
+
+		root := &Command{
+			Name: "greet",
+			Exec: func(ctx context.Context, s *State) error {
+				return fmt.Errorf("boom")
+			},
+		}
+
+		err := Parse(root, nil)
+		require.NoError(t, err)
+		stderr := new(strings.Builder)
+		err = Run(context.Background(), root, &RunOptions{Stderr: stderr})
+		require.Error(t, err)
+		require.EqualError(t, err, "boom")
+		require.Empty(t, stderr.String())
 	})
 }

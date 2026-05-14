@@ -3,12 +3,25 @@ package cli
 import (
 	"bytes"
 	"context"
+	"errors"
 	"flag"
+	"fmt"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
+
+func TestUsageError(t *testing.T) {
+	t.Parallel()
+
+	err := UsageErrorf("missing %s", "name")
+	require.EqualError(t, err, "missing name")
+
+	var usageErr *usageError
+	require.True(t, errors.As(err, &usageErr))
+	require.EqualError(t, errors.Unwrap(err), "missing name")
+}
 
 func TestRun(t *testing.T) {
 	t.Parallel()
@@ -227,5 +240,83 @@ func TestRun(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, val, GetFlag[string](root.state, "text"))
 		}
+	})
+}
+
+func TestParseAndRun(t *testing.T) {
+	t.Parallel()
+
+	t.Run("runs command", func(t *testing.T) {
+		t.Parallel()
+
+		stdout := bytes.NewBuffer(nil)
+		root := &Command{
+			Name: "greet",
+			Exec: func(ctx context.Context, s *State) error {
+				_, err := fmt.Fprintln(s.Stdout, "hello")
+				return err
+			},
+		}
+
+		err := ParseAndRun(context.Background(), root, nil, &RunOptions{Stdout: stdout})
+		require.NoError(t, err)
+		require.Equal(t, "hello\n", stdout.String())
+	})
+
+	t.Run("prints help", func(t *testing.T) {
+		t.Parallel()
+
+		stdout := bytes.NewBuffer(nil)
+		root := &Command{
+			Name:        "greet",
+			Description: "Print a greeting",
+			Exec:        func(ctx context.Context, s *State) error { return nil },
+		}
+
+		err := ParseAndRun(context.Background(), root, []string{"--help"}, &RunOptions{Stdout: stdout})
+		require.NoError(t, err)
+		require.Contains(t, stdout.String(), "Print a greeting")
+		require.Contains(t, stdout.String(), "Usage:")
+		require.Contains(t, stdout.String(), "greet")
+	})
+
+	t.Run("prints help for missing subcommand", func(t *testing.T) {
+		t.Parallel()
+
+		stderr := bytes.NewBuffer(nil)
+		root := &Command{
+			Name: "deploy",
+			SubCommands: []*Command{
+				{
+					Name:        "service",
+					Usage:       "deploy service <command> [flags]",
+					Description: "Manage services.",
+					Flags: FlagsFunc(func(f *flag.FlagSet) {
+						f.String("config", "", "path to config file")
+					}),
+					FlagConfigs: []FlagConfig{
+						{Name: "config", Required: true},
+					},
+					SubCommands: []*Command{
+						{
+							Name:    "restart",
+							Summary: "Restart a service",
+							Exec: func(ctx context.Context, s *State) error {
+								return nil
+							},
+						},
+					},
+				},
+			},
+		}
+
+		err := ParseAndRun(context.Background(), root, []string{"service"}, &RunOptions{Stderr: stderr})
+		require.Error(t, err)
+		require.EqualError(t, err, "subcommand required")
+		require.Contains(t, stderr.String(), "Manage services.")
+		require.Contains(t, stderr.String(), "deploy service <command> [flags]")
+		require.Contains(t, stderr.String(), "restart    Restart a service")
+		require.Contains(t, stderr.String(), "--config string    path to config file (required)")
+		require.True(t, strings.HasSuffix(stderr.String(), "\n\n"))
 	})
 }

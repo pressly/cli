@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -16,9 +15,10 @@ import (
 
 func main() {
 	root := &cli.Command{
-		Name:      "todo",
-		Usage:     "todo <command> [flags]",
-		ShortHelp: "A simple CLI for managing your tasks",
+		Name:        "todo",
+		Usage:       "todo <command> [flags]",
+		Summary:     "Manage tasks",
+		Description: "todo manages tasks stored in a local JSON file.",
 		Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 			f.Bool("verbose", false, "enable verbose output")
 			f.Bool("version", false, "print the version")
@@ -28,8 +28,7 @@ func main() {
 				fmt.Fprintf(s.Stdout, "todo v1.0.0\n")
 				return nil
 			}
-			fmt.Fprintf(s.Stderr, "todo: subcommand required, use --help for more information\n")
-			return nil
+			return cli.UsageErrorf("subcommand required")
 		},
 		SubCommands: []*cli.Command{
 			list(),
@@ -45,19 +44,16 @@ func main() {
 
 func list() *cli.Command {
 	return &cli.Command{
-		Name:      "list",
-		Usage:     "todo list <command> [flags]",
-		ShortHelp: "List tasks",
+		Name:        "list",
+		Usage:       "todo list <command> [flags]",
+		Summary:     "List tasks",
+		Description: "List tasks by saved views such as today or overdue.",
 		Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 			f.String("file", "", "path to the tasks file")
 			f.String("tags", "", "filter tasks by tags")
 		}),
-		FlagOptions: []cli.FlagOption{
+		FlagConfigs: []cli.FlagConfig{
 			{Name: "file", Required: true},
-		},
-		Exec: func(ctx context.Context, s *cli.State) error {
-			fmt.Fprintf(s.Stderr, "todo list: subcommand required, use --help for more information\n")
-			return nil
 		},
 		SubCommands: []*cli.Command{
 			listToday(),
@@ -73,9 +69,9 @@ func getTasksFromFile(s *cli.State) (*TaskList, error) {
 
 func listToday() *cli.Command {
 	return &cli.Command{
-		Name:      "today",
-		Usage:     "todo list today [flags]",
-		ShortHelp: "List tasks due today",
+		Name:    "today",
+		Usage:   "todo list today [flags]",
+		Summary: "List tasks due today",
 		Exec: func(ctx context.Context, s *cli.State) error {
 			tasks, err := getTasksFromFile(s)
 			if err != nil {
@@ -97,9 +93,9 @@ func listToday() *cli.Command {
 
 func listOverdue() *cli.Command {
 	return &cli.Command{
-		Name:      "overdue",
-		Usage:     "todo list overdue [flags]",
-		ShortHelp: "List overdue tasks",
+		Name:    "overdue",
+		Usage:   "todo list overdue [flags]",
+		Summary: "List overdue tasks",
 		Exec: func(ctx context.Context, s *cli.State) error {
 			tasks, err := getTasksFromFile(s)
 			if err != nil {
@@ -126,10 +122,10 @@ func task() *cli.Command {
 		Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 			f.String("file", "", "path to the tasks file")
 		}),
-		FlagOptions: []cli.FlagOption{
+		FlagConfigs: []cli.FlagConfig{
 			{Name: "file", Required: true},
 		},
-		ShortHelp: "Manage tasks",
+		Summary: "Manage tasks",
 		SubCommands: []*cli.Command{
 			taskAdd(),
 			taskDone(),
@@ -140,9 +136,9 @@ func task() *cli.Command {
 
 func taskAdd() *cli.Command {
 	return &cli.Command{
-		Name:      "add",
-		Usage:     "todo task add <text> [flags]",
-		ShortHelp: "Add a new task",
+		Name:    "add",
+		Usage:   "todo task add <text> [flags]",
+		Summary: "Add a new task",
 		Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 			f.String("tags", "", "comma-separated list of tags")
 		}),
@@ -179,12 +175,12 @@ func taskAdd() *cli.Command {
 
 func taskDone() *cli.Command {
 	return &cli.Command{
-		Name:      "done",
-		Usage:     "todo task done <id> [flags]",
-		ShortHelp: "Mark a task as done",
+		Name:    "done",
+		Usage:   "todo task done <id> [flags]",
+		Summary: "Mark a task as done",
 		Exec: func(ctx context.Context, s *cli.State) error {
 			if len(s.Args) == 0 {
-				return errors.New("task ID required")
+				return cli.UsageErrorf("task ID required")
 			}
 			tasks, err := getTasksFromFile(s)
 			if err != nil {
@@ -202,9 +198,9 @@ func taskDone() *cli.Command {
 
 func taskRemove() *cli.Command {
 	return &cli.Command{
-		Name:      "remove",
-		Usage:     "todo task remove <id> [flags]",
-		ShortHelp: "Remove a task",
+		Name:    "remove",
+		Usage:   "todo task remove <id> [flags]",
+		Summary: "Remove a task",
 		Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 			f.Bool("force", false, "force removal without confirmation")
 			f.Bool("all", false, "remove all tasks")
@@ -216,7 +212,7 @@ func taskRemove() *cli.Command {
 				file  = cli.GetFlag[string](s, "file")
 			)
 			if len(s.Args) == 0 && !all {
-				return errors.New("task ID required, or use --all to remove all tasks")
+				return cli.UsageErrorf("task ID required, or use --all to remove all tasks")
 			}
 			if all {
 				if !force {

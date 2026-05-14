@@ -10,6 +10,29 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Added
 
 - `flagtype.EnumDefault` constructor for enums with an initial default value
+- `Cmd` field on `State` for accessing the terminal command selected by parsing
+- `Summary` field on `Command` for the short text shown in command lists
+- `UsageErrorf` for opt-in usage errors; `Run` prints command help to stderr before returning the
+  underlying error
+
+### Changed
+
+- **BREAKING**: Replace `Command.UsageFunc` with `Command.Help`, which returns the full help string
+  for a command
+- **BREAKING**: Replace `Command.ShortHelp` with `Command.Summary` for command lists and
+  `Command.Description` for longer command help text
+- **BREAKING**: Rename `FlagOption` to `FlagConfig` and `Command.FlagOptions` to
+  `Command.FlagConfigs`
+- Commands with subcommands and no `Exec` now report a usage error when no child command is
+  selected, before enforcing required flags inherited by child commands
+- Help output keeps the default automatic `--help` behavior through `ParseAndRun`; `Command.Help`
+  replaces the generated help string when a command needs full control
+
+### Removed
+
+- **BREAKING**: Remove `ErrHelp`; check `errors.Is(err, flag.ErrHelp)` when handling `Parse`
+  directly
+- **BREAKING**: Remove `DefaultUsage` and the top-level `Usage` function from the public API
 
 ## [v0.6.0] - 2026-02-18
 

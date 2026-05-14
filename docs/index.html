@@ -89,12 +89,12 @@ func main() {
         FlagConfigs: []cli.FlagConfig{
             {Name: "capitalize", Short: "c"},
         },
-        Exec: func(ctx context.Context, s *cli.State) error {
-            text := strings.Join(s.Args, " ")
-            if cli.GetFlag[bool](s, "capitalize") {
+        Exec: func(ctx context.Context, state *cli.State) error {
+            text := strings.Join(state.Args, " ")
+            if cli.GetFlag[bool](state, "capitalize") {
                 text = strings.ToUpper(text)
             }
-            fmt.Fprintln(s.Stdout, text)
+            fmt.Fprintln(state.Stdout, text)
             return nil
         },
     }
@@ -158,7 +158,9 @@ FlagConfigs: []cli.FlagConfig{
 error: command "build": required flag "-output" not set
 
 $ build --help
-...
+Usage:
+  build [flags]
+
 Flags:
   -o, --output string    output file (required)</code></pre>
 
@@ -218,11 +220,7 @@ Usage:
 
 Inherited Flags:
   --verbose    enable verbose output</code></pre>
-    <p>Inheritance shows up explicitly when a subcommand is asked for help: <code>--verbose</code> lives under <em>Inherited Flags</em>, not <em>Flags</em>.</p>
-    <p>Flags can also appear anywhere on the command line; all of these are equivalent:</p>
-<pre><code class="language-bash">todo --verbose add buy milk
-todo add --verbose buy milk
-todo add buy milk --verbose</code></pre>
+    <p>Inheritance shows up explicitly when a subcommand is asked for help: <code>--verbose</code> lives under <em>Inherited Flags</em>, not <em>Flags</em>. Flags can also appear <a href="#why-anywhere">anywhere on the command line</a>.</p>
   </section>
 
   <hr />
@@ -283,7 +281,7 @@ todo add buy milk --verbose</code></pre>
 
     <h3 id="why-inheritance">Parent flags inherit by default</h3>
     <p>A flag defined on the root command is visible from every subcommand without being redeclared. <code>--verbose</code> on <code>todo</code> works on <code>todo list</code> and <code>todo add</code> automatically.</p>
-    <p>Most flags want to be inherited: <code>--verbose</code>, <code>--config</code>, <code>--dry-run</code>, <code>--quiet</code>. They apply at any depth. For the rare flag that genuinely shouldn't escape its command (a <code>--force</code> on <code>task remove</code> that has no meaning anywhere else), set <code>FlagConfig.Local: true</code>:</p>
+    <p>Most flags want to be inherited: <code>--verbose</code>, <code>--config</code>, <code>--dry-run</code>, <code>--quiet</code>. They apply at any depth. For the rare flag that genuinely shouldn't escape its command (a <code>--force</code> on <code>task remove</code> that has no meaning anywhere else), set <code>Local: true</code> on its <code>FlagConfig</code>:</p>
 <pre><code class="language-go">FlagConfigs: []cli.FlagConfig{
     {Name: "force", Local: true},
 },</code></pre>

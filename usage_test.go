@@ -541,6 +541,44 @@ func TestFlagHelp(t *testing.T) {
 		require.Contains(t, output, "(default: stdout)")
 	})
 
+	t.Run("long flag descriptions wrap", func(t *testing.T) {
+		t.Parallel()
+
+		cmd := &Command{
+			Name: "test",
+			Flags: FlagsFunc(func(fset *flag.FlagSet) {
+				fset.String("asdf", "", "bar")
+				fset.Bool("c", false, strings.Repeat("capitalize the input ", 6))
+			}),
+			FlagConfigs: []FlagConfig{
+				{Name: "c", Required: true},
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+
+		err := Parse(cmd, []string{"-c"})
+		require.NoError(t, err)
+
+		output := help(cmd)
+		require.Contains(t, output, "Flags:")
+		require.Contains(t, output, "  --asdf string    bar")
+		require.Contains(t, output, "(required)")
+
+		inFlags := false
+		for _, line := range strings.Split(output, "\n") {
+			if line == "Flags:" {
+				inFlags = true
+				continue
+			}
+			if inFlags && line == "" {
+				break
+			}
+			if inFlags {
+				require.LessOrEqualf(t, len(line), 80, "flag help line should wrap: %q", line)
+			}
+		}
+	})
+
 	t.Run("short flags displayed", func(t *testing.T) {
 		t.Parallel()
 

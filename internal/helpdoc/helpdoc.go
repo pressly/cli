@@ -2,14 +2,16 @@
 package helpdoc
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"io"
 	"slices"
 	"strings"
-	"text/tabwriter"
+
+	"github.com/pressly/cli/pkg/textutil"
 )
+
+const defaultTerminalWidth = 80
 
 // Document is an ordered list of help blocks.
 type Document []Block
@@ -347,24 +349,46 @@ type flagInfo struct {
 
 func writeItems(w io.Writer, items []Item) (int64, error) {
 	cw := &countWriter{w: w}
-	var b bytes.Buffer
-	tw := tabwriter.NewWriter(&b, 0, 0, 4, ' ', 0)
+	maxNameLen := 0
+	for _, item := range items {
+		if len(item.Name) > maxNameLen {
+			maxNameLen = len(item.Name)
+		}
+	}
+
+	summaryIndent := maxNameLen + 6
+	wrapWidth := defaultTerminalWidth - summaryIndent
+	if wrapWidth < 20 {
+		wrapWidth = 20
+	}
+
 	for _, item := range items {
 		if item.Summary == "" {
-			if _, err := fmt.Fprintf(tw, "  %s\n", item.Name); err != nil {
+			if _, err := fmt.Fprintf(cw, "  %s\n", item.Name); err != nil {
 				return cw.n, err
 			}
 			continue
 		}
-		if _, err := fmt.Fprintf(tw, "  %s\t%s\n", item.Name, item.Summary); err != nil {
+
+		lines := textutil.Wrap(item.Summary, wrapWidth)
+		if len(lines) == 0 {
+			if _, err := fmt.Fprintf(cw, "  %s\n", item.Name); err != nil {
+				return cw.n, err
+			}
+			continue
+		}
+
+		padding := strings.Repeat(" ", maxNameLen-len(item.Name)+4)
+		if _, err := fmt.Fprintf(cw, "  %s%s%s\n", item.Name, padding, lines[0]); err != nil {
 			return cw.n, err
 		}
-	}
-	if err := tw.Flush(); err != nil {
-		return cw.n, err
-	}
-	if _, err := cw.Write(b.Bytes()); err != nil {
-		return cw.n, err
+
+		indent := strings.Repeat(" ", summaryIndent)
+		for _, line := range lines[1:] {
+			if _, err := fmt.Fprintf(cw, "%s%s\n", indent, line); err != nil {
+				return cw.n, err
+			}
+		}
 	}
 	return cw.n, nil
 }

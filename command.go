@@ -4,7 +4,9 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"strings"
+	"sync"
 
 	"github.com/pressly/cli/pkg/suggest"
 )
@@ -23,7 +25,14 @@ type Command struct {
 	// arguments. The default usage line shows only the command path, plus "[flags]" when the
 	// command has flags.
 	//
-	// Example: "todo list <view> [flags]"
+	// A common convention is to write required values as "<name>", optional values as "[name]", and
+	// repeated values with "...".
+	//
+	//	Example: "todo list <view> [flags]"
+	//	Example: "todo add <text> [flags]"
+	//	Example: "todo remove <id>"
+	//	Example: "echo [flags] <text>..."
+	//	Example: "serve [flags] [addr]"
 	Usage string
 
 	// Summary is the one-line description shown next to this command in its parent's command list.
@@ -125,10 +134,37 @@ type FlagConfig struct {
 //	    f.String("output", "", "output file")
 //	    f.Int("count", 0, "number of items")
 //	}),
-func FlagsFunc(fn func(f *flag.FlagSet)) *flag.FlagSet {
-	fset := flag.NewFlagSet("", flag.ContinueOnError)
+func FlagsFunc(fn func(f *flag.FlagSet)) (fset *flag.FlagSet) {
+	fset = flag.NewFlagSet("", flag.ContinueOnError)
+	fset.SetOutput(io.Discard)
+	defer func() {
+		if r := recover(); r != nil {
+			flagSetupErrors.Store(fset, flagSetupPanicError(r))
+		}
+	}()
 	fn(fset)
 	return fset
+}
+
+var flagSetupErrors sync.Map
+
+func flagSetupError(fset *flag.FlagSet) error {
+	if fset == nil {
+		return nil
+	}
+	err, ok := flagSetupErrors.Load(fset)
+	if !ok {
+		return nil
+	}
+	return err.(error)
+}
+
+func flagSetupPanicError(r any) error {
+	msg := fmt.Sprint(r)
+	if name, ok := strings.CutPrefix(msg, "flag redefined: "); ok {
+		return fmt.Errorf("flag %s is defined more than once", formatFlagName(name))
+	}
+	return fmt.Errorf("flag setup failed: %s", msg)
 }
 
 // findSubCommand searches for a subcommand by name and returns it if found. Returns nil if no

@@ -145,6 +145,22 @@ func TestParse(t *testing.T) {
 		require.ErrorIs(t, err, flag.ErrHelp)
 		require.Empty(t, by.String())
 	})
+	t.Run("flags func setup panic returns parse error", func(t *testing.T) {
+		t.Parallel()
+
+		root := &Command{
+			Name: "root",
+			Flags: FlagsFunc(func(fset *flag.FlagSet) {
+				fset.Bool("c", false, "capitalize the input")
+				fset.Bool("c", false, "capitalize the input again")
+			}),
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+
+		err := Parse(root, nil)
+		require.Error(t, err)
+		require.EqualError(t, err, `command "root": flag -c is defined more than once`)
+	})
 	t.Run("no flags", func(t *testing.T) {
 		t.Parallel()
 		s := newTestState()
@@ -321,7 +337,7 @@ func TestParse(t *testing.T) {
 
 		err := Parse(s.root, nil)
 		require.Error(t, err)
-		require.ErrorContains(t, err, `subcommand in path [todo, nested] has no name`)
+		require.EqualError(t, err, `command "todo nested": subcommand has no name`)
 	})
 	t.Run("required flag", func(t *testing.T) {
 		t.Parallel()
@@ -368,7 +384,7 @@ func TestParse(t *testing.T) {
 		}
 		err := Parse(cmd, nil)
 		require.Error(t, err)
-		require.ErrorContains(t, err, `flag config references unknown flag "some-other-flag"`)
+		require.EqualError(t, err, `command "root": flag -some-other-flag is configured but not defined`)
 	})
 	t.Run("space in command name", func(t *testing.T) {
 		t.Parallel()
@@ -380,7 +396,7 @@ func TestParse(t *testing.T) {
 		}
 		err := Parse(cmd, nil)
 		require.Error(t, err)
-		require.ErrorContains(t, err, `failed to parse: command ["root", "sub command"]: name must start with a letter and contain only letters, numbers, dashes (-) or underscores (_)`)
+		require.EqualError(t, err, `command "root sub command": invalid name: must start with a letter and contain only letters, numbers, dashes, or underscores`)
 	})
 	t.Run("dash in command name", func(t *testing.T) {
 		t.Parallel()
@@ -416,7 +432,7 @@ func TestParse(t *testing.T) {
 		}
 		err := Parse(cmd, nil)
 		require.Error(t, err)
-		require.ErrorContains(t, err, `name must start with a letter`)
+		require.EqualError(t, err, `command "root 1command": invalid name: must start with a letter and contain only letters, numbers, dashes, or underscores`)
 	})
 	t.Run("command name with special characters", func(t *testing.T) {
 		t.Parallel()
@@ -428,7 +444,7 @@ func TestParse(t *testing.T) {
 		}
 		err := Parse(cmd, nil)
 		require.Error(t, err)
-		require.ErrorContains(t, err, `name must start with a letter and contain only letters, numbers, dashes (-) or underscores (_)`)
+		require.EqualError(t, err, `command "root sub@command": invalid name: must start with a letter and contain only letters, numbers, dashes, or underscores`)
 	})
 	t.Run("very long command name", func(t *testing.T) {
 		t.Parallel()
@@ -567,7 +583,7 @@ func TestParse(t *testing.T) {
 		}
 		err := Parse(cmd, []string{"--existing=value"})
 		require.Error(t, err)
-		require.ErrorContains(t, err, `flag config references unknown flag "nonexistent"`)
+		require.EqualError(t, err, `command "root": flag -nonexistent is configured but not defined`)
 	})
 	t.Run("args with special characters", func(t *testing.T) {
 		t.Parallel()
@@ -796,7 +812,24 @@ func TestShortFlags(t *testing.T) {
 		}
 		err := Parse(cmd, []string{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), `flag config references unknown flag "vrbose"`)
+		require.EqualError(t, err, `command "root": flag -vrbose is configured but not defined`)
+	})
+
+	t.Run("flag config name is required", func(t *testing.T) {
+		t.Parallel()
+		cmd := &Command{
+			Name: "root",
+			Flags: FlagsFunc(func(f *flag.FlagSet) {
+				f.Bool("verbose", false, "enable verbose output")
+			}),
+			FlagConfigs: []FlagConfig{
+				{Name: "", Required: true},
+			},
+			Exec: func(ctx context.Context, s *State) error { return nil },
+		}
+		err := Parse(cmd, []string{})
+		require.Error(t, err)
+		require.EqualError(t, err, `command "root": flag config is missing a name`)
 	})
 
 	t.Run("short alias must be single ASCII letter", func(t *testing.T) {
@@ -813,7 +846,7 @@ func TestShortFlags(t *testing.T) {
 		}
 		err := Parse(cmd, []string{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "short alias must be a single ASCII letter")
+		require.EqualError(t, err, `command "root": flag -verbose has invalid short alias "vv"; short aliases must be one ASCII letter`)
 	})
 
 	t.Run("duplicate short alias", func(t *testing.T) {
@@ -832,7 +865,7 @@ func TestShortFlags(t *testing.T) {
 		}
 		err := Parse(cmd, []string{})
 		require.Error(t, err)
-		require.Contains(t, err.Error(), `duplicate short flag "v"`)
+		require.EqualError(t, err, `command "root": short flag -v is configured for both -verbose and -version`)
 	})
 }
 

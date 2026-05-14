@@ -122,6 +122,7 @@ func TestStateCommandContext(t *testing.T) {
 		require.EqualError(t, err, "must supply a name")
 		require.Contains(t, stderr.String(), "Usage:")
 		require.Contains(t, stderr.String(), "greet")
+		require.True(t, strings.HasSuffix(stderr.String(), "\n\n"))
 	})
 
 	t.Run("usage error prints terminal command help", func(t *testing.T) {
@@ -153,6 +154,7 @@ func TestStateCommandContext(t *testing.T) {
 		require.Contains(t, stderr.String(), "root child [flags]")
 		require.Contains(t, stderr.String(), "Inherited Flags:")
 		require.Contains(t, stderr.String(), "--verbose")
+		require.True(t, strings.HasSuffix(stderr.String(), "\n\n"))
 	})
 
 	t.Run("normal error does not print help", func(t *testing.T) {

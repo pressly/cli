@@ -7,10 +7,12 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [v0.7.0] - 2026-05-14
+
 ### Added
 
 - `flagtype.EnumDefault` constructor for enums with an initial default value
-- `Cmd` field on `State` for accessing the terminal command selected by parsing
+- `Cmd` field on `State` exposing the terminal command selected during parsing
 - `Summary` field on `Command` for the short text shown in command lists
 - `UsageErrorf` for opt-in usage errors; `Run` prints command help to stderr before returning the
   underlying error
@@ -25,8 +27,6 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
   `Command.FlagConfigs`
 - Commands with subcommands and no `Exec` now report a usage error when no child command is
   selected, before enforcing required flags inherited by child commands
-- Help output keeps the default automatic `--help` behavior through `ParseAndRun`; `Command.Help`
-  replaces the generated help string when a command needs full control
 
 ### Removed
 
@@ -102,7 +102,8 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - `textutil` and `suggest` helper packages
 - GitHub Actions CI
 
-[Unreleased]: https://github.com/pressly/cli/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/pressly/cli/compare/v0.7.0...HEAD
+[v0.7.0]: https://github.com/pressly/cli/compare/v0.6.0...v0.7.0
 [v0.6.0]: https://github.com/pressly/cli/compare/v0.5.0...v0.6.0
 [v0.5.0]: https://github.com/pressly/cli/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/pressly/cli/compare/v0.3.0...v0.4.0

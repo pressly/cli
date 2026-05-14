@@ -8,74 +8,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-
-	"github.com/pressly/cli/xflag"
 )
-
-// Parse picks the right command and parses its flags from args, but does not run [Command.Exec].
-// Use Parse with [Run] when you need to do work between parsing and running. For the common case,
-// call [ParseAndRun].
-//
-// Parse returns [flag.ErrHelp] when the user passes -h or --help. You have to print the help
-// yourself when this happens. [ParseAndRun] does it for you.
-func Parse(root *Command, args []string) error {
-	if root == nil {
-		return errors.New("root command is nil")
-	}
-	if err := validateCommands(root, nil); err != nil {
-		return err
-	}
-
-	// Initialize or update root state. Clear command pointers across the tree first so stale
-	// subcommands from a previous parse do not retain the newly resolved path.
-	state := root.state
-	clearCommandState(root)
-	if state == nil {
-		state = &State{}
-	}
-	root.state = state
-	root.state.Args = nil
-	root.state.Cmd = nil
-	root.state.path = []*Command{root}
-
-	argsToParse, remainingArgs := splitAtDelimiter(args)
-
-	current, err := resolveCommandPath(root, argsToParse)
-	if err != nil {
-		return err
-	}
-	root.state.Cmd = current
-	current.Flags.Usage = func() { /* suppress default usage */ }
-
-	// Check for help flags after resolving the correct command
-	for _, arg := range argsToParse {
-		if arg == "-h" || arg == "--h" || arg == "-help" || arg == "--help" {
-			return flag.ErrHelp
-		}
-	}
-
-	combinedFlags := combineFlags(root.state.path)
-
-	// Let ParseToEnd handle the flag parsing
-	if err := xflag.ParseToEnd(combinedFlags, argsToParse); err != nil {
-		return fmt.Errorf("command %q: %w", getCommandPath(root.state.path), err)
-	}
-
-	root.state.Args = collectArgs(root.state.path, combinedFlags.Args(), remainingArgs)
-
-	if current.Exec == nil && len(current.SubCommands) > 0 {
-		return UsageErrorf("subcommand required")
-	}
-
-	if err := checkRequiredFlags(root.state.path, combinedFlags); err != nil {
-		return err
-	}
-
-	if current.Exec == nil {
-		return fmt.Errorf("command %q: no exec function defined", getCommandPath(root.state.path))
-	}
-	return nil
-}
 
 // splitAtDelimiter splits args at the first "--" delimiter. Returns the args before the delimiter
 // and any args after it.

@@ -13,7 +13,7 @@ type urlValue struct {
 // URL returns a [flag.Value] that parses the flag value as a URL. The URL must have both a scheme
 // and a host, otherwise an error is returned.
 //
-// Use [cli.GetFlag] with type *url.URL to retrieve the value.
+// Use [cli.State.GetFlag] with type *url.URL to retrieve the value.
 func URL() flag.Value {
 	return &urlValue{}
 }

@@ -19,7 +19,7 @@ Docs: <https://pressly.github.io/cli>
 go get github.com/pressly/cli@latest
 ```
 
-Requires Go 1.21 or higher.
+Requires Go 1.27 or higher.
 
 ## Quick Start
 
@@ -36,7 +36,7 @@ root := &cli.Command{
 	},
 	Exec: func(ctx context.Context, s *cli.State) error {
 		text := strings.Join(s.Args, " ")
-		if cli.GetFlag[bool](s, "capitalize") {
+		if s.GetFlag[bool]("capitalize") {
 			text = strings.ToUpper(text)
 		}
 		fmt.Fprintln(s.Stdout, text)
@@ -84,11 +84,11 @@ FlagConfigs: []cli.FlagConfig{
 Short aliases register `-v` as an alias for `--verbose`, `-o` as an alias for `--output`, and so on.
 Both forms are shown in help output automatically.
 
-Access flags inside `Exec` with the type-safe `GetFlag` function:
+Access flags inside `Exec` with the type-safe `State.GetFlag` method:
 
 ```go
-verbose := cli.GetFlag[bool](s, "verbose")
-output := cli.GetFlag[string](s, "output")
+verbose := s.GetFlag[bool]("verbose")
+output := s.GetFlag[string]("output")
 ```
 
 Child commands automatically inherit flags from parent commands, so a `--verbose` flag on the root

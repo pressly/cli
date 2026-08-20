@@ -15,7 +15,7 @@ type stringMapValue struct {
 // to add multiple entries, like --label=env=prod --label=tier=web. The value is split on the first
 // "=" character, so values may contain additional "=" characters.
 //
-// Use [cli.GetFlag] with type map[string]string to retrieve the value.
+// Use [cli.State.GetFlag] with type map[string]string to retrieve the value.
 func StringMap() flag.Value {
 	return &stringMapValue{}
 }

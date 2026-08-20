@@ -7,6 +7,11 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING**: Replace the top-level `GetFlag` function with the generic `State.GetFlag` method
+- **BREAKING**: Require Go 1.27 or higher
+
 ## [v0.7.0] - 2026-05-14
 
 ### Added

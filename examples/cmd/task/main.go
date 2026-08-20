@@ -24,7 +24,7 @@ func main() {
 			f.Bool("version", false, "print the version")
 		}),
 		Exec: func(ctx context.Context, s *cli.State) error {
-			if cli.GetFlag[bool](s, "version") {
+			if s.GetFlag[bool]("version") {
 				fmt.Fprintf(s.Stdout, "todo v1.0.0\n")
 				return nil
 			}
@@ -63,7 +63,7 @@ func list() *cli.Command {
 }
 
 func getTasksFromFile(s *cli.State) (*TaskList, error) {
-	file := cli.GetFlag[string](s, "file")
+	file := s.GetFlag[string]("file")
 	return Load(file)
 }
 
@@ -144,8 +144,8 @@ func taskAdd() *cli.Command {
 		}),
 		Exec: func(ctx context.Context, s *cli.State) error {
 			var (
-				tagsText = cli.GetFlag[string](s, "tags")
-				file     = cli.GetFlag[string](s, "file")
+				tagsText = s.GetFlag[string]("tags")
+				file     = s.GetFlag[string]("file")
 			)
 			var tags []string
 			if tagsText != "" {
@@ -207,9 +207,9 @@ func taskRemove() *cli.Command {
 		}),
 		Exec: func(ctx context.Context, s *cli.State) error {
 			var (
-				force = cli.GetFlag[bool](s, "force")
-				all   = cli.GetFlag[bool](s, "all")
-				file  = cli.GetFlag[string](s, "file")
+				force = s.GetFlag[bool]("force")
+				all   = s.GetFlag[bool]("all")
+				file  = s.GetFlag[string]("file")
 			)
 			if len(s.Args) == 0 && !all {
 				return cli.UsageErrorf("task ID required, or use --all to remove all tasks")

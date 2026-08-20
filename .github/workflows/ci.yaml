@@ -17,17 +17,18 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: stable
+          go-version: "1.27.x"
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.13.0
 
   build:
     name: Build and test
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        # go-version: ['oldstable', 'stable', '1.23.0-rc.2']
-        go-version: ["oldstable", "stable"]
+        go-version: ["1.27.x"]
     env:
       VERBOSE: 1
 

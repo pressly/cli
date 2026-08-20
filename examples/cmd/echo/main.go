@@ -29,7 +29,7 @@ func main() {
 			}
 			output := strings.Join(s.Args, " ")
 			// If -c flag is set, capitalize the output
-			if cli.GetFlag[bool](s, "c") {
+			if s.GetFlag[bool]("c") {
 				output = strings.ToUpper(output)
 			}
 			fmt.Fprintln(s.Stdout, output)

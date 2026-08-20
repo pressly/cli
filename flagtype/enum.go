@@ -15,7 +15,7 @@ type enumValue struct {
 // Enum returns a [flag.Value] that restricts the flag to one of the allowed values. If a value not
 // in the allowed list is provided, an error is returned listing valid options.
 //
-// Use [cli.GetFlag] with type string to retrieve the value.
+// Use [cli.State.GetFlag] with type string to retrieve the value.
 func Enum(allowed ...string) flag.Value {
 	return &enumValue{allowed: allowed}
 }
@@ -23,7 +23,7 @@ func Enum(allowed ...string) flag.Value {
 // EnumDefault is like [Enum] but sets an initial default value. The default must be one of the
 // allowed values, otherwise EnumDefault panics.
 //
-// Use [cli.GetFlag] with type string to retrieve the value.
+// Use [cli.State.GetFlag] with type string to retrieve the value.
 func EnumDefault(defaultVal string, allowed []string) flag.Value {
 	if !slices.Contains(allowed, defaultVal) {
 		panic(fmt.Sprintf("flagtype: default value %q is not in allowed values: %s",

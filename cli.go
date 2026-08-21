@@ -162,14 +162,7 @@ type FlagConfig struct {
 	Local bool
 }
 
-// FlagName associates a flag's canonical name with its Go type. Pass a FlagName to [State.GetFlag]
-// to infer the returned type instead of specifying it at each lookup.
-//
-//	const verbose FlagName[bool] = "verbose"
-//
-// Define the flag with its string name as usual:
-//
-//	f.Bool(string(verbose), false, "enable verbose output")
+// FlagName ties a flag name to the type returned by [State.GetFlag].
 type FlagName[T any] string
 
 // State is the value passed to [Command.Exec]. It holds the parsed inputs the command needs to run.
@@ -224,21 +217,12 @@ func FlagsFunc(fn func(f *flag.FlagSet)) (fset *flag.FlagSet) {
 	return fset
 }
 
-// GetFlag returns the value of a flag as type T. Call it from inside [Command.Exec] with the same
-// Go type that was used when the flag was defined.
-//
-// GetFlag looks for the flag on the picked command first, then in its parent commands. A flag
-// defined on the root command can be read from any subcommand. An unknown flag name or a wrong type
-// is a programming error: GetFlag panics, and [Run] catches the panic and returns the error.
+// GetFlag returns a flag value as T, searching the picked command before its parents. Unknown names
+// and type mismatches are programming errors: GetFlag panics, and [Run] returns the error.
 //
 //	verbose := s.GetFlag[bool]("verbose")
-//	count   := s.GetFlag[int]("count")
-//	path    := s.GetFlag[string]("path")
-//
-// Use [FlagName] to define a reusable name and infer the returned type:
-//
-//	const verbose FlagName[bool] = "verbose"
-//	enabled := s.GetFlag(verbose)
+//	const count FlagName[int] = "count"
+//	n := s.GetFlag(count)
 func (s *State) GetFlag[T any](name FlagName[T]) T {
 	if s == nil {
 		panic(&internalError{err: errors.New("state is nil")})

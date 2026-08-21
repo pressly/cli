@@ -9,9 +9,9 @@ It is intentionally orphaned from `main` and contains only the static site. GitH
 ```
 docs/
 ├── index.html      main page
-├── flagtype.html   flagtype subpackage
-├── graceful.html   graceful subpackage
-├── xflag.html      xflag subpackage
+├── flagtype/       flagtype subpackage
+├── graceful/       graceful subpackage
+├── xflag/          xflag subpackage
 ├── styles.css      all styling
 ├── app.js          copy buttons, theme toggle, heading anchors
 └── .nojekyll       tells GitHub Pages to skip Jekyll processing

@@ -56,7 +56,7 @@
       with nested subcommands, flag inheritance, and <a href="https://mfridman.com/blog/2024/allowing-flags-anywhere-on-the-cli/" target="_blank" rel="noopener">flags-anywhere</a> parsing.
     </p>
     <p class="lede">Intentionally minimal.</p>
-    <p class="facts">Go 1.21+ &middot; 0 dependencies &middot; MIT</p>
+    <p class="facts">Go 1.27+ &middot; standard library only &middot; MIT</p>
 <pre><code class="language-bash">go get github.com/pressly/cli@latest</code></pre>
     <p class="aside"><a href="#why-compare">Why this over cobra or urfave? &rarr;</a></p>
   </section>
@@ -81,7 +81,7 @@ import (
 func main() {
     root := &amp;cli.Command{
         Name:    "echo",
-        Usage:   "echo [flags] <text>...",
+        Usage:   "echo [flags] &lt;text&gt;...",
         Summary: "Print text",
         Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
             f.Bool("capitalize", false, "capitalize the input")
@@ -91,7 +91,7 @@ func main() {
         },
         Exec: func(ctx context.Context, state *cli.State) error {
             text := strings.Join(state.Args, " ")
-            if cli.GetFlag[bool](state, "capitalize") {
+            if state.GetFlag[bool]("capitalize") {
                 text = strings.ToUpper(text)
             }
             fmt.Fprintln(state.Stdout, text)
@@ -127,18 +127,19 @@ Flags:
     <p>The full surface of the package fits on one screen. Each symbol links to its <a href="https://pkg.go.dev/github.com/pressly/cli" target="_blank" rel="noopener">godoc</a> entry, the canonical reference.</p>
 <pre class="api-index"><code><span class="idx-h">FUNCTIONS</span>
     <a href="https://pkg.go.dev/github.com/pressly/cli#FlagsFunc" target="_blank" rel="noopener">func FlagsFunc(fn func(f *flag.FlagSet)) *flag.FlagSet</a>
-    <a href="https://pkg.go.dev/github.com/pressly/cli#GetFlag" target="_blank" rel="noopener">func GetFlag[T any](s *State, name string) T</a>
     <a href="https://pkg.go.dev/github.com/pressly/cli#Parse" target="_blank" rel="noopener">func Parse(root *Command, args []string) error</a>
-    <a href="https://pkg.go.dev/github.com/pressly/cli#ParseAndRun" target="_blank" rel="noopener">func ParseAndRun(ctx context.Context, root *Command, args []string, opts *RunOptions) error</a>
-    <a href="https://pkg.go.dev/github.com/pressly/cli#Run" target="_blank" rel="noopener">func Run(ctx context.Context, root *Command, opts *RunOptions) error</a>
+    <a href="https://pkg.go.dev/github.com/pressly/cli#ParseAndRun" target="_blank" rel="noopener">func ParseAndRun(ctx context.Context, root *Command, args []string, options *RunOptions) error</a>
+    <a href="https://pkg.go.dev/github.com/pressly/cli#Run" target="_blank" rel="noopener">func Run(ctx context.Context, root *Command, options *RunOptions) error</a>
     <a href="https://pkg.go.dev/github.com/pressly/cli#UsageErrorf" target="_blank" rel="noopener">func UsageErrorf(format string, args ...any) error</a>
 
 <span class="idx-h">TYPES</span>
     <a href="https://pkg.go.dev/github.com/pressly/cli#Command" target="_blank" rel="noopener">type Command</a>
         <a href="https://pkg.go.dev/github.com/pressly/cli#Command.Path" target="_blank" rel="noopener">func (c *Command) Path() []*Command</a>
     <a href="https://pkg.go.dev/github.com/pressly/cli#FlagConfig" target="_blank" rel="noopener">type FlagConfig</a>
+    <a href="https://pkg.go.dev/github.com/pressly/cli#FlagName" target="_blank" rel="noopener">type FlagName[T any] string</a>
     <a href="https://pkg.go.dev/github.com/pressly/cli#RunOptions" target="_blank" rel="noopener">type RunOptions</a>
-    <a href="https://pkg.go.dev/github.com/pressly/cli#State" target="_blank" rel="noopener">type State</a></code></pre>
+    <a href="https://pkg.go.dev/github.com/pressly/cli#State" target="_blank" rel="noopener">type State</a>
+        <a href="https://pkg.go.dev/github.com/pressly/cli#State.GetFlag" target="_blank" rel="noopener">func (s *State) GetFlag[T any](name FlagName[T]) T</a></code></pre>
   </section>
 
   <hr />
@@ -168,7 +169,7 @@ Flags:
     <p>Subcommands inherit any flag defined on the root. Set <code>Local: true</code> to opt out.</p>
 <pre><code class="language-go">root := &amp;cli.Command{
     Name:  "todo",
-    Usage: "todo <command> [flags]",
+    Usage: "todo &lt;command&gt; [flags]",
 
     // --verbose lives on the root, so every subcommand inherits it.
     Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
@@ -181,7 +182,7 @@ Flags:
             Summary: "List all tasks",
             Exec: func(ctx context.Context, state *cli.State) error {
                 // No need to redeclare --verbose; it's inherited.
-                if cli.GetFlag[bool](state, "verbose") {
+                if state.GetFlag[bool]("verbose") {
                     fmt.Fprintln(state.Stderr, "listing tasks...")
                 }
                 return nil
@@ -189,7 +190,7 @@ Flags:
         },
         {
             Name:    "add",
-            Usage:   "todo add <text>",
+            Usage:   "todo add &lt;text&gt;",
             Summary: "Add a task",
             Exec: func(ctx context.Context, state *cli.State) error {
                 // state.Args is everything left after flag parsing.
@@ -230,10 +231,10 @@ Inherited Flags:
     <p>Optional helpers that ship in this repo. Each one stands alone; use them where they fit.</p>
 
     <h3 id="sub-flagtype"><a href="flagtype/">flagtype</a></h3>
-    <p>Common <code>flag.Value</code> implementations: string slices, enums, maps, URLs, regexes. Register a value with <code>f.Var()</code> and read it back with the matching <code>cli.GetFlag[T]</code>.</p>
+    <p>Common <code>flag.Value</code> implementations: string slices, enums, maps, URLs, regexes. Register a value with <code>f.Var()</code> and read it back with <code>State.GetFlag[T]</code>.</p>
 <pre><code class="language-go">f.Var(flagtype.Enum("json", "yaml", "table"), "format", "output format")
 
-format := cli.GetFlag[string](state, "format")</code></pre>
+format := state.GetFlag[string]("format")</code></pre>
 
     <h3 id="sub-graceful"><a href="graceful/">graceful</a></h3>
     <p>Signal handling and shutdown semantics for long-lived processes: servers, workers, batch jobs. First Ctrl+C cancels the context for clean shutdown; second forces an exit. Independent of <code>cli</code>.</p>
@@ -287,18 +288,24 @@ todo add buy milk --verbose</code></pre>
 },</code></pre>
     <p>That's the entire opt-out.</p>
 
-    <h3 id="why-getflag">Type-safe flag access through <code>GetFlag[T]</code></h3>
-    <p>Inside <code>Exec</code>, <code>GetFlag[T]</code> returns a flag's value as the requested type, walking from the current command up to the root so inherited flags are visible:</p>
-<pre><code class="language-go">verbose := cli.GetFlag[bool](state, "verbose")
-output  := cli.GetFlag[string](state, "output")
-tags    := cli.GetFlag[[]string](state, "tag")</code></pre>
-    <p>The signature is deliberately just <code>T</code>, not <code>(T, error)</code>. A missing flag name or mismatched type is a programming error, not something the caller can recover from: <code>GetFlag</code> panics, <code>cli</code> catches it and reports cleanly. The mistake surfaces in development without forcing every callsite to write <code>if err != nil { return err }</code>.</p>
-    <p>The free-function form (with <code>state</code> passed in) exists because Go doesn't yet allow type parameters on methods. Once <a href="https://github.com/golang/go/issues/77273" target="_blank" rel="noopener">generic methods land</a>, this will move onto <code>State</code> and read more naturally:</p>
+    <h3 id="why-getflag">Type-safe flag access through <code>State.GetFlag[T]</code></h3>
+    <p>Go 1.27 lets <code>GetFlag[T]</code> live directly on <code>State</code>. Inside <code>Exec</code>, it returns a flag's value as the requested type, walking from the current command up to the root so inherited flags are visible:</p>
 <pre><code class="language-go">verbose := state.GetFlag[bool]("verbose")
-output  := state.GetFlag[string]("output")</code></pre>
+output  := state.GetFlag[string]("output")
+tags    := state.GetFlag[[]string]("tag")</code></pre>
+    <p>The signature is deliberately just <code>T</code>, not <code>(T, error)</code>. A missing flag name or mismatched type is a programming error, not something the caller can recover from: <code>GetFlag</code> panics, <code>cli</code> catches it and reports cleanly. The mistake surfaces in development without forcing every callsite to write <code>if err != nil { return err }</code>.</p>
+    <p>For a flag used in more than one place, <code>FlagName[T]</code> keeps the name and type together:</p>
+<pre><code class="language-go">const verbose cli.FlagName[bool] = "verbose"
+
+f.Bool(string(verbose), false, "enable verbose output")
+enabled := state.GetFlag(verbose)</code></pre>
+    <p><code>GetFlag</code> infers <code>bool</code> from <code>verbose</code>. The name is declared once, and a mismatched type does not compile.</p>
+    <p>The simple form still works. If the name comes from a string variable, convert it once because a plain string has no flag type:</p>
+<pre><code class="language-go">name := "verbose"
+enabled := state.GetFlag(cli.FlagName[bool](name))</code></pre>
 
     <h3 id="why-no-deps">No dependencies</h3>
-    <p><code>go.mod</code> has no <code>require</code> block, and that is deliberate. CLI libraries tend to grow into framework-shaped objects with their own color packages, configuration layers, log routing, and DI containers. None of that belongs in a small library.</p>
+    <p>The library only imports the standard library. The <code>require</code> block in <code>go.mod</code> is for tests. CLI libraries tend to grow into framework-shaped objects with their own color packages, configuration layers, log routing, and DI containers. None of that belongs in a small library.</p>
     <p>Compose those concerns as a caller. For color and styled output, reach for <a href="https://github.com/charmbracelet/lipgloss" target="_blank" rel="noopener">lipgloss</a> or <a href="https://github.com/fatih/color" target="_blank" rel="noopener">fatih/color</a>. For prompts, <a href="https://github.com/charmbracelet/huh" target="_blank" rel="noopener">huh</a> or <a href="https://github.com/manifoldco/promptui" target="_blank" rel="noopener">promptui</a>. For configuration, <a href="https://github.com/spf13/viper" target="_blank" rel="noopener">viper</a> or <a href="https://github.com/knadh/koanf" target="_blank" rel="noopener">koanf</a>. For env-var binding, <a href="https://github.com/kelseyhightower/envconfig" target="_blank" rel="noopener">envconfig</a>. Pick whichever you like. The library has no opinion, and your binary's transitive dependency tree is whatever you put there.</p>
 
     <h3 id="why-graceful">Auxiliary packages live alongside, not inside, <code>cli</code></h3>

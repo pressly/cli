@@ -64,14 +64,14 @@
     <h2 id="index">At a glance</h2>
     <p>Each symbol links to its <a href="https://pkg.go.dev/github.com/pressly/cli/graceful" target="_blank" rel="noopener">godoc</a> entry, the canonical reference.</p>
 <pre class="api-index"><code><span class="idx-h">FUNCTIONS</span>
-    <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#Run" target="_blank" rel="noopener">func Run(run func(context.Context) error, opts ...Option)</a>
+    <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#Run" target="_blank" rel="noopener">func Run(fn func(context.Context) error, opts ...Option)</a>
     <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#ListenAndServe" target="_blank" rel="noopener">func ListenAndServe(srv *http.Server, shutdownGrace time.Duration) func(context.Context) error</a>
 
 <span class="idx-h">OPTIONS</span>
     <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#WithRunTimeout" target="_blank" rel="noopener">func WithRunTimeout(d time.Duration) Option</a>
     <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#WithTerminationTimeout" target="_blank" rel="noopener">func WithTerminationTimeout(d time.Duration) Option</a>
     <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#WithImmediateTermination" target="_blank" rel="noopener">func WithImmediateTermination() Option</a>
-    <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#WithLogger" target="_blank" rel="noopener">func WithLogger(l *slog.Logger) Option</a>
+    <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#WithLogger" target="_blank" rel="noopener">func WithLogger(logger *slog.Logger) Option</a>
     <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#WithStderr" target="_blank" rel="noopener">func WithStderr(w io.Writer) Option</a></code></pre>
   </section>
 
@@ -79,7 +79,7 @@
 
   <section>
     <h2 id="behavior">Behavior</h2>
-    <p>The first <code>SIGINT</code> or <code>SIGTERM</code> cancels the context passed into the run function, giving it a chance to shut down cleanly. A second signal forces an immediate exit. Optional timeouts bound the run duration and the total shutdown period.</p>
+    <p>The first <code>SIGINT</code> or <code>SIGTERM</code> cancels the context passed into the run function, giving it a chance to shut down cleanly. A second signal forces an immediate exit. <code>WithRunTimeout</code> cancels the context; it does not force the function to return. <code>WithTerminationTimeout</code> caps the total shutdown time.</p>
     <p>Exit codes:</p>
     <ul>
       <li><code>0</code>: successful completion</li>

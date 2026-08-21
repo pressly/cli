@@ -53,7 +53,7 @@
     <p class="lede">
       Common <code>flag.Value</code> implementations for <code>pressly/cli</code>. Each constructor
       returns a value you register with <code>f.Var()</code>; storage is internal, and values are
-      retrieved through <code>cli.GetFlag[T]</code>.
+      retrieved through <code>State.GetFlag[T]</code>.
     </p>
 <pre><code class="language-go">import "github.com/pressly/cli/flagtype"</code></pre>
   </section>
@@ -76,7 +76,7 @@
 
   <section>
     <h2 id="patterns">Patterns</h2>
-    <p>Register a value with <code>f.Var()</code>, retrieve it with the matching <code>cli.GetFlag[T]</code>. The full set, in one place:</p>
+    <p>Register a value with <code>f.Var()</code>, retrieve it with the matching <code>State.GetFlag[T]</code>. The full set, in one place:</p>
 <pre><code class="language-go">cmd := &amp;cli.Command{
     Name: "fetch",
     Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
@@ -99,12 +99,12 @@
             "match", "filter pattern")
     }),
     Exec: func(ctx context.Context, state *cli.State) error {
-        tags     := cli.GetFlag[[]string](state, "tag")
-        format   := cli.GetFlag[string](state, "format")
-        migType  := cli.GetFlag[string](state, "type")
-        labels   := cli.GetFlag[map[string]string](state, "label")
-        endpoint := cli.GetFlag[*url.URL](state, "endpoint")
-        re       := cli.GetFlag[*regexp.Regexp](state, "match")
+        tags     := state.GetFlag[[]string]("tag")
+        format   := state.GetFlag[string]("format")
+        migType  := state.GetFlag[string]("type")
+        labels   := state.GetFlag[map[string]string]("label")
+        endpoint := state.GetFlag[*url.URL]("endpoint")
+        re       := state.GetFlag[*regexp.Regexp]("match")
 
         _, _, _, _, _, _ = tags, format, migType, labels, endpoint, re
         return nil

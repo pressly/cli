@@ -50,11 +50,7 @@
 
   <section class="intro">
     <h1>xflag</h1>
-    <p class="lede">
-      A drop-in replacement for <code>flag.Parse</code> that accepts flags anywhere in the argument
-      list. Used internally by <code>cli</code> to drive its parser, and usable on its own with a
-      stdlib <code>*flag.FlagSet</code>.
-    </p>
+    <p class="lede">Flags-anywhere parsing for the standard library. Used by cli, but also works on its own.</p>
 <pre><code class="language-go">import "github.com/pressly/cli/xflag"</code></pre>
   </section>
 
@@ -62,7 +58,7 @@
 
   <section>
     <h2 id="index">At a glance</h2>
-    <p>One function. The link goes to <a href="https://pkg.go.dev/github.com/pressly/cli/xflag" target="_blank" rel="noopener">godoc</a> for the canonical reference.</p>
+    <p>One function, linked to <a href="https://pkg.go.dev/github.com/pressly/cli/xflag" target="_blank" rel="noopener">godoc</a>.</p>
 <pre class="api-index"><code><span class="idx-h">FUNCTIONS</span>
     <a href="https://pkg.go.dev/github.com/pressly/cli/xflag#ParseToEnd" target="_blank" rel="noopener">func ParseToEnd(f *flag.FlagSet, arguments []string) error</a></code></pre>
   </section>
@@ -71,28 +67,28 @@
 
   <section>
     <h2 id="usage">Usage</h2>
-    <p>Define flags on a stdlib <code>*flag.FlagSet</code>, then call <code>xflag.ParseToEnd</code> instead of <code>f.Parse</code>:</p>
 <pre><code class="language-go">f := flag.NewFlagSet("greet", flag.ContinueOnError)
 verbose := f.Bool("verbose", false, "enable verbose output")
 name    := f.String("name", "world", "who to greet")
 
+// Keep parsing after positional arguments.
 if err := xflag.ParseToEnd(f, os.Args[1:]); err != nil {
     log.Fatal(err)
 }
 
 fmt.Println(*verbose, *name, f.Args())</code></pre>
-    <p>All three of these invocations parse the same way:</p>
-<pre><code class="language-bash">greet --verbose --name=alice arg1 arg2
+<pre><code class="language-bash"># All three are equivalent.
+greet --verbose --name=alice arg1 arg2
 greet arg1 --verbose arg2 --name=alice
 greet arg1 arg2 --verbose --name=alice</code></pre>
-    <p>Stdlib's <code>flag.Parse</code> would stop at <code>arg1</code> in the second and third forms, treating <code>--verbose</code> and <code>--name</code> as positional arguments.</p>
   </section>
 
   <hr />
 
   <section>
     <h2 id="why">Why this exists</h2>
-    <p>Go's <code>flag</code> package stops parsing at the first non-flag argument. That behavior is well-known (see <a href="https://github.com/golang/go/issues/4513" target="_blank" rel="noopener">#4513</a> and <a href="https://github.com/golang/go/issues/63138" target="_blank" rel="noopener">#63138</a>) and unlikely to change. Most CLI users today expect Docker- and Git-style behavior where flags can appear anywhere. <code>xflag.ParseToEnd</code> bridges that gap without giving up the standard library's <code>flag.FlagSet</code>.</p>
+    <p>Go stops parsing flags at the first positional argument. Most CLIs allow flags anywhere, so xflag fills that gap without replacing the standard library.</p>
+    <p>Background: <a href="https://github.com/golang/go/issues/4513" target="_blank" rel="noopener">Go issue #4513</a> and <a href="https://github.com/golang/go/issues/63138" target="_blank" rel="noopener">#63138</a>.</p>
   </section>
 
   <footer class="site-footer">

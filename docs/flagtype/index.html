@@ -50,11 +50,7 @@
 
   <section class="intro">
     <h1>flagtype</h1>
-    <p class="lede">
-      Common <code>flag.Value</code> implementations for <code>pressly/cli</code>. Each constructor
-      returns a value you register with <code>f.Var()</code>; storage is internal, and values are
-      retrieved through <code>State.GetFlag[T]</code>.
-    </p>
+    <p class="lede">Common flag types for slices, enums, maps, URLs, and regular expressions.</p>
 <pre><code class="language-go">import "github.com/pressly/cli/flagtype"</code></pre>
   </section>
 
@@ -62,7 +58,7 @@
 
   <section>
     <h2 id="index">At a glance</h2>
-    <p>Each symbol links to its <a href="https://pkg.go.dev/github.com/pressly/cli/flagtype" target="_blank" rel="noopener">godoc</a> entry, the canonical reference.</p>
+    <p>Each name links to <a href="https://pkg.go.dev/github.com/pressly/cli/flagtype" target="_blank" rel="noopener">godoc</a>.</p>
 <pre class="api-index"><code><span class="idx-h">FUNCTIONS</span>
     <a href="https://pkg.go.dev/github.com/pressly/cli/flagtype#StringSlice" target="_blank" rel="noopener">func StringSlice() flag.Value</a>
     <a href="https://pkg.go.dev/github.com/pressly/cli/flagtype#Enum" target="_blank" rel="noopener">func Enum(allowed ...string) flag.Value</a>
@@ -76,7 +72,7 @@
 
   <section>
     <h2 id="patterns">Patterns</h2>
-    <p>Register a value with <code>f.Var()</code>, retrieve it with the matching <code>State.GetFlag[T]</code>. The full set, in one place:</p>
+    <p>A command using every type:</p>
 <pre><code class="language-go">cmd := &amp;cli.Command{
     Name: "fetch",
     Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
@@ -99,6 +95,7 @@
             "match", "filter pattern")
     }),
     Exec: func(ctx context.Context, state *cli.State) error {
+        // Values come back as their Go types.
         tags     := state.GetFlag[[]string]("tag")
         format   := state.GetFlag[string]("format")
         migType  := state.GetFlag[string]("type")
@@ -121,8 +118,8 @@ Flags:
   --match regexp       filter pattern
   --tag stringSlice    add a tag (repeatable)
   --type enum          migration type (default: sql)</code></pre>
-    <p>Each flagtype carries a type hint that shows up in the auto-generated help. Repeatable flags (<code>StringSlice</code>, <code>StringMap</code>) collect values across multiple appearances on the command line:</p>
-<pre><code class="language-bash">fetch --tag a --tag b --label env=prod --label tier=api</code></pre>
+<pre><code class="language-bash"># Repeatable flags collect every value.
+fetch --tag a --tag b --label env=prod --label tier=api</code></pre>
   </section>
 
   <footer class="site-footer">

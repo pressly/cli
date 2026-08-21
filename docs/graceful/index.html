@@ -50,11 +50,7 @@
 
   <section class="intro">
     <h1>graceful</h1>
-    <p class="lede">
-      Run a long-lived function with signal handling, context cancellation, optional timeouts, and
-      standardized exit codes. Independent of the <code>cli</code> package; useful for servers,
-      workers, and batch jobs.
-    </p>
+    <p class="lede">Signal-aware shutdown for servers, workers, and batch jobs. Independent of cli.</p>
 <pre><code class="language-go">import "github.com/pressly/cli/graceful"</code></pre>
   </section>
 
@@ -62,7 +58,7 @@
 
   <section>
     <h2 id="index">At a glance</h2>
-    <p>Each symbol links to its <a href="https://pkg.go.dev/github.com/pressly/cli/graceful" target="_blank" rel="noopener">godoc</a> entry, the canonical reference.</p>
+    <p>Each name links to <a href="https://pkg.go.dev/github.com/pressly/cli/graceful" target="_blank" rel="noopener">godoc</a>.</p>
 <pre class="api-index"><code><span class="idx-h">FUNCTIONS</span>
     <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#Run" target="_blank" rel="noopener">func Run(fn func(context.Context) error, opts ...Option)</a>
     <a href="https://pkg.go.dev/github.com/pressly/cli/graceful#ListenAndServe" target="_blank" rel="noopener">func ListenAndServe(srv *http.Server, shutdownGrace time.Duration) func(context.Context) error</a>
@@ -79,7 +75,12 @@
 
   <section>
     <h2 id="behavior">Behavior</h2>
-    <p>The first <code>SIGINT</code> or <code>SIGTERM</code> cancels the context passed into the run function, giving it a chance to shut down cleanly. A second signal forces an immediate exit. <code>WithRunTimeout</code> cancels the context; it does not force the function to return. <code>WithTerminationTimeout</code> caps the total shutdown time.</p>
+    <ul>
+      <li>The first signal cancels the run context.</li>
+      <li>A second signal exits immediately.</li>
+      <li>A run timeout cancels the context; the function must still return.</li>
+      <li>A termination timeout caps the whole shutdown.</li>
+    </ul>
     <p>Exit codes:</p>
     <ul>
       <li><code>0</code>: successful completion</li>
@@ -95,20 +96,22 @@
     <h2 id="examples">Examples</h2>
 
     <h3 id="ex-server">HTTP server</h3>
-    <p>First Ctrl+C drains in-flight requests for up to 15s. Second Ctrl+C forces an exit (130). Total time is capped at 30s (124 if exceeded).</p>
 <pre><code class="language-go">server := &amp;http.Server{
     Addr:    ":8080",
     Handler: mux,
 }
 
 graceful.Run(
+    // Drain requests for up to 15 seconds.
     graceful.ListenAndServe(server, 15*time.Second),
+    // Give the whole shutdown 30 seconds.
     graceful.WithTerminationTimeout(30*time.Second),
 )</code></pre>
 
     <h3 id="ex-batch">Batch job with a hard deadline</h3>
 <pre><code class="language-go">graceful.Run(
     func(ctx context.Context) error {
+        // The function must return when ctx is canceled.
         return processBatch(ctx)
     },
     graceful.WithRunTimeout(1*time.Hour),

@@ -65,7 +65,6 @@
 
   <section id="quickstart">
     <h2>Quick start</h2>
-    <p>A complete program. Drop it in <code>main.go</code> and <code>go run main.go</code>.</p>
 <pre><code class="language-go">package main
 
 import (
@@ -117,14 +116,13 @@ Usage:
 
 Flags:
   -c, --capitalize    capitalize the input</code></pre>
-    <p><code>ParseAndRun</code> parses, handles <code>--help</code>, and runs the resolved command. Use <a href="https://pkg.go.dev/github.com/pressly/cli#Parse" target="_blank" rel="noopener"><code>Parse</code></a> + <a href="https://pkg.go.dev/github.com/pressly/cli#Run" target="_blank" rel="noopener"><code>Run</code></a> separately when you need to do work between the two.</p>
   </section>
 
   <hr />
 
   <section id="api">
     <h2>At a glance</h2>
-    <p>The full surface of the package fits on one screen. Each symbol links to its <a href="https://pkg.go.dev/github.com/pressly/cli" target="_blank" rel="noopener">godoc</a> entry, the canonical reference.</p>
+    <p>The entire API fits on one screen. Each name links to <a href="https://pkg.go.dev/github.com/pressly/cli" target="_blank" rel="noopener">godoc</a>.</p>
 <pre class="api-index"><code><span class="idx-h">FUNCTIONS</span>
     <a href="https://pkg.go.dev/github.com/pressly/cli#FlagsFunc" target="_blank" rel="noopener">func FlagsFunc(fn func(f *flag.FlagSet)) *flag.FlagSet</a>
     <a href="https://pkg.go.dev/github.com/pressly/cli#Parse" target="_blank" rel="noopener">func Parse(root *Command, args []string) error</a>
@@ -148,11 +146,11 @@ Flags:
     <h2>Examples</h2>
 
     <h3 id="ex-required">Required flags</h3>
-    <p>Set <code>Required: true</code> on a <code>FlagConfig</code> and <code>Parse</code> returns an error if the user omits it. The generated help marks it <code>(required)</code>.</p>
 <pre><code class="language-go">Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
     f.String("output", "", "output file")
 }),
 FlagConfigs: []cli.FlagConfig{
+    // The command will not run without --output.
     {Name: "output", Short: "o", Required: true},
 },</code></pre>
 <pre><code>$ build
@@ -166,12 +164,11 @@ Flags:
   -o, --output string    output file (required)</code></pre>
 
     <h3 id="ex-subcommands">Nested subcommands with inherited flags</h3>
-    <p>Subcommands inherit any flag defined on the root. Set <code>Local: true</code> to opt out.</p>
 <pre><code class="language-go">root := &amp;cli.Command{
     Name:  "todo",
     Usage: "todo &lt;command&gt; [flags]",
 
-    // --verbose lives on the root, so every subcommand inherits it.
+    // Root flags are inherited.
     Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
         f.Bool("verbose", false, "enable verbose output")
     }),
@@ -181,7 +178,6 @@ Flags:
             Name:    "list",
             Summary: "List all tasks",
             Exec: func(ctx context.Context, state *cli.State) error {
-                // No need to redeclare --verbose; it's inherited.
                 if state.GetFlag[bool]("verbose") {
                     fmt.Fprintln(state.Stderr, "listing tasks...")
                 }
@@ -221,30 +217,31 @@ Usage:
 
 Inherited Flags:
   --verbose    enable verbose output</code></pre>
-    <p>Inheritance shows up explicitly when a subcommand is asked for help: <code>--verbose</code> lives under <em>Inherited Flags</em>, not <em>Flags</em>. Flags can also appear <a href="#why-anywhere">anywhere on the command line</a>.</p>
   </section>
 
   <hr />
 
   <section id="subpackages">
     <h2>Subpackages</h2>
-    <p>Optional helpers that ship in this repo. Each one stands alone; use them where they fit.</p>
+    <p>Small helpers that can also be used on their own.</p>
 
     <h3 id="sub-flagtype"><a href="flagtype/">flagtype</a></h3>
-    <p>Common <code>flag.Value</code> implementations: string slices, enums, maps, URLs, regexes. Register a value with <code>f.Var()</code> and read it back with <code>State.GetFlag[T]</code>.</p>
+    <p>Common flag types for slices, enums, maps, URLs, and regular expressions.</p>
 <pre><code class="language-go">f.Var(flagtype.Enum("json", "yaml", "table"), "format", "output format")
 
 format := state.GetFlag[string]("format")</code></pre>
 
     <h3 id="sub-graceful"><a href="graceful/">graceful</a></h3>
-    <p>Signal handling and shutdown semantics for long-lived processes: servers, workers, batch jobs. First Ctrl+C cancels the context for clean shutdown; second forces an exit. Independent of <code>cli</code>.</p>
+    <p>Signal-aware shutdown for servers, workers, and batch jobs.</p>
 <pre><code class="language-go">graceful.Run(
+    // Drain requests for up to 15 seconds.
     graceful.ListenAndServe(server, 15*time.Second),
+    // Give the whole shutdown 30 seconds.
     graceful.WithTerminationTimeout(30*time.Second),
 )</code></pre>
 
     <h3 id="sub-xflag"><a href="xflag/">xflag</a></h3>
-    <p>A drop-in replacement for <code>flag.Parse</code> that accepts flags anywhere in the argument list. Used by <code>cli</code> internally, also usable on its own with a stdlib <code>*flag.FlagSet</code>.</p>
+    <p>Flags-anywhere parsing for the standard library. Used by cli internally, but also works on its own.</p>
 <pre><code class="language-go">err := xflag.ParseToEnd(f, os.Args[1:])</code></pre>
   </section>
 
@@ -252,68 +249,63 @@ format := state.GetFlag[string]("format")</code></pre>
 
   <section id="why">
     <h2>But why?</h2>
-    <p>The library makes a handful of opinionated choices. Each one is explained below.</p>
 
     <h3 id="why-compare">Compared to cobra, urfave, and kong</h3>
-    <p>This library gives you the command tree, flag parsing, and subcommand resolution, <strong>built directly on the standard library's <code>flag</code> package</strong> so there's no new flag system to learn. Color, config loading, env-var binding, and the rest you compose from packages of your choice. Your binary's dependency graph is whatever you put there.</p>
-    <p><a href="https://github.com/spf13/cobra" target="_blank" rel="noopener">cobra</a>, <a href="https://github.com/urfave/cli" target="_blank" rel="noopener">urfave/cli</a>, and <a href="https://github.com/alecthomas/kong" target="_blank" rel="noopener">kong</a> take a different shape. cobra is what Kubernetes, Docker, and <code>gh</code> use. urfave is well-trodden and battle-tested. kong is declarative via struct tags. They include code generators, lifecycle hooks, completion script generation, and struct-tag definitions. Pick one of those if you specifically want any of those features built in.</p>
+    <p>cli stays close to the standard library: command tree, flag parsing, and subcommands. Bring your own color, configuration, prompts, and everything else.</p>
+    <p><a href="https://github.com/spf13/cobra" target="_blank" rel="noopener">cobra</a>, <a href="https://github.com/urfave/cli" target="_blank" rel="noopener">urfave/cli</a>, and <a href="https://github.com/alecthomas/kong" target="_blank" rel="noopener">kong</a> include more features out of the box. Choose one if that is what you want.</p>
 
-    <h3 id="why-flag">Built on the standard library's <code>flag</code> package</h3>
-    <p>If you have ever written a Go CLI without a framework, you already know how to define flags here. <code>Command.Flags</code> is a plain <code>*flag.FlagSet</code>:</p>
+    <h3 id="why-flag">Built on the standard library</h3>
 <pre><code class="language-go">f.Bool("verbose", false, "enable verbose output")
 f.String("output", "", "output file")
 f.Duration("timeout", 5*time.Second, "request timeout")</code></pre>
-    <p>Most CLI libraries ship their own flag system and then re-implement bool, int, string, duration, and the rest. That is a lot of surface area for very little benefit; this library doesn't reach for it. Custom types implement <code>flag.Value</code> the standard way.</p>
+    <p>There is no second flag system to learn.</p>
 
     <h3 id="why-flagtype">Custom flag types follow the same pattern</h3>
-    <p>The <a href="flagtype/"><code>flagtype</code></a> subpackage currently provides the types most CLIs reach for: slices, enums, maps, URLs, and regexes. Each constructor returns a value that implements <code>flag.Value</code> and registers through <code>f.Var()</code>, the same way custom types have always plugged into the standard <code>flag</code> package:</p>
-<pre><code class="language-go">f.Bool("verbose", false, "enable verbose output")
-f.String("output", "", "output file")
+    <p><a href="flagtype/">flagtype</a> includes slices, enums, maps, URLs, and regular expressions.</p>
+<pre><code class="language-go">// Custom types use the same FlagSet.
 f.Var(flagtype.StringSlice(), "tag", "add a tag (repeatable)")
 f.Var(flagtype.URL(), "endpoint", "API endpoint")</code></pre>
-    <p>There is no second API to learn. Anything implementing <code>flag.Value</code> registers the same way, including custom types you write yourself. If there's a type you think belongs in <code>flagtype</code>, <a href="https://github.com/pressly/cli/issues" target="_blank" rel="noopener">open an issue</a>.</p>
+    <p>If a type belongs in flagtype, <a href="https://github.com/pressly/cli/issues" target="_blank" rel="noopener">open an issue</a>.</p>
 
     <h3 id="why-anywhere">Flags can appear anywhere</h3>
-    <p>Flags can appear before, between, or after positional arguments. All three of these mean the same thing:</p>
-<pre><code class="language-bash">todo --verbose add buy milk
+    <p>The standard library stops at the first positional argument. cli keeps parsing, and <a href="xflag/">xflag</a> provides the same behavior on its own.</p>
+<pre><code class="language-bash"># All three are equivalent.
+todo --verbose add buy milk
 todo add --verbose buy milk
 todo add buy milk --verbose</code></pre>
-    <p>The standard <code>flag</code> package stops parsing at the first positional, so <code>cmd build foo --verbose</code> would treat <code>--verbose</code> as a positional. That's not what modern CLI users expect, so this library uses the <a href="xflag/"><code>xflag</code></a> package, which also ships standalone for callers who want flags-anywhere behavior without the rest of <code>cli</code>.</p>
 
     <h3 id="why-inheritance">Parent flags inherit by default</h3>
-    <p>A flag defined on the root command is visible from every subcommand without being redeclared. <code>--verbose</code> on <code>todo</code> works on <code>todo list</code> and <code>todo add</code> automatically.</p>
-    <p>Most flags want to be inherited: <code>--verbose</code>, <code>--config</code>, <code>--dry-run</code>, <code>--quiet</code>. They apply at any depth. For the rare flag that genuinely shouldn't escape its command (a <code>--force</code> on <code>task remove</code> that has no meaning anywhere else), set <code>Local: true</code> on its <code>FlagConfig</code>:</p>
 <pre><code class="language-go">FlagConfigs: []cli.FlagConfig{
+    // Keep --force on this command instead of inheriting it.
     {Name: "force", Local: true},
 },</code></pre>
-    <p>That's the entire opt-out.</p>
 
-    <h3 id="why-getflag">Type-safe flag access through <code>State.GetFlag[T]</code></h3>
-    <p>Go 1.27 lets <code>GetFlag[T]</code> live directly on <code>State</code>. Inside <code>Exec</code>, it returns a flag's value as the requested type, walking from the current command up to the root so inherited flags are visible:</p>
+    <h3 id="why-getflag">Type-safe flag access</h3>
+    <p>Go 1.27 lets the flag type live directly on the method call:</p>
 <pre><code class="language-go">verbose := state.GetFlag[bool]("verbose")
 output  := state.GetFlag[string]("output")
 tags    := state.GetFlag[[]string]("tag")</code></pre>
-    <p>The signature is deliberately just <code>T</code>, not <code>(T, error)</code>. A missing flag name or mismatched type is a programming error, not something the caller can recover from: <code>GetFlag</code> panics, <code>cli</code> catches it and reports cleanly. The mistake surfaces in development without forcing every callsite to write <code>if err != nil { return err }</code>.</p>
-    <p>For a flag used in more than one place, <code>FlagName[T]</code> keeps the name and type together:</p>
-<pre><code class="language-go">const verbose cli.FlagName[bool] = "verbose"
+    <p>A missing flag or wrong type is a programming error. cli reports it cleanly.</p>
+<pre><code class="language-go">// Keep the name and type together when a flag is shared.
+const verbose cli.FlagName[bool] = "verbose"
 
 f.Bool(string(verbose), false, "enable verbose output")
-enabled := state.GetFlag(verbose)</code></pre>
-    <p><code>GetFlag</code> infers <code>bool</code> from <code>verbose</code>. The name is declared once, and a mismatched type does not compile.</p>
-    <p>The simple form still works. If the name comes from a string variable, convert it once because a plain string has no flag type:</p>
-<pre><code class="language-go">name := "verbose"
-enabled := state.GetFlag(cli.FlagName[bool](name))</code></pre>
+enabled := state.GetFlag(verbose) // bool is inferred
+
+// A plain string needs a type when passed to GetFlag.
+name := "verbose"
+enabled = state.GetFlag(cli.FlagName[bool](name))</code></pre>
 
     <h3 id="why-no-deps">No dependencies</h3>
-    <p>The library only imports the standard library. The <code>require</code> block in <code>go.mod</code> is for tests. CLI libraries tend to grow into framework-shaped objects with their own color packages, configuration layers, log routing, and DI containers. None of that belongs in a small library.</p>
-    <p>Compose those concerns as a caller. For color and styled output, reach for <a href="https://github.com/charmbracelet/lipgloss" target="_blank" rel="noopener">lipgloss</a> or <a href="https://github.com/fatih/color" target="_blank" rel="noopener">fatih/color</a>. For prompts, <a href="https://github.com/charmbracelet/huh" target="_blank" rel="noopener">huh</a> or <a href="https://github.com/manifoldco/promptui" target="_blank" rel="noopener">promptui</a>. For configuration, <a href="https://github.com/spf13/viper" target="_blank" rel="noopener">viper</a> or <a href="https://github.com/knadh/koanf" target="_blank" rel="noopener">koanf</a>. For env-var binding, <a href="https://github.com/kelseyhightower/envconfig" target="_blank" rel="noopener">envconfig</a>. Pick whichever you like. The library has no opinion, and your binary's transitive dependency tree is whatever you put there.</p>
+    <p>The library only imports the standard library. The requirements in go.mod are for tests.</p>
+    <p>Color, prompts, configuration, and logging stay in your application. Pick the packages you like.</p>
 
-    <h3 id="why-graceful">Auxiliary packages live alongside, not inside, <code>cli</code></h3>
-    <p>The repo ships a few auxiliary packages: currently <a href="flagtype/"><code>flagtype</code></a>, <a href="graceful/"><code>graceful</code></a>, and <a href="xflag/"><code>xflag</code></a>, with room for more. Each is intentionally separate from the core. None import <code>cli</code>, and <code>cli</code> does not import them (except <code>xflag</code>, which <code>cli</code> uses internally to do its parsing).</p>
-    <p>They live here because the same problems show up in almost every CLI binary, and shipping them in the same repo keeps the boilerplate out of every <code>main</code> without bloating the core library. A package earns a place here only if it depends solely on the standard library, stands alone, and solves a problem any CLI author would otherwise solve themselves the same way.</p>
+    <h3 id="why-graceful">Small packages stay separate</h3>
+    <p>Common helpers live beside cli instead of growing its core API. Each works on its own; xflag is also used internally.</p>
+    <p>A package belongs here if it only needs the standard library and solves a common CLI problem.</p>
 
-    <h3 id="why-lineage">Inspired by <code>ff/v3</code></h3>
-    <p>This library traces its lineage to Peter Bourgon's <a href="https://github.com/peterbourgon/ff" target="_blank" rel="noopener">ff</a>. The <code>v3</code> branch was small, focused, and built on <code>flag.FlagSet</code>. It was almost exactly what this library wants to be. <code>v4</code> went toward more features and a different shape, so this library carries the <code>v3</code> spirit forward.</p>
+    <h3 id="why-lineage">Inspired by ff/v3</h3>
+    <p>Inspired by Peter Bourgon's <a href="https://github.com/peterbourgon/ff" target="_blank" rel="noopener">ff</a> library, especially its v3 branch, which was close to what I wanted. v4 took a different direction, but I wanted to keep the simplicity of v3. This library carries that idea forward.</p>
 
   </section>
 

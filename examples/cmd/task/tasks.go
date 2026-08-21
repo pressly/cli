@@ -13,7 +13,7 @@ type Task struct {
 	ID      int       `json:"id,omitempty"`
 	Text    string    `json:"text,omitempty"`
 	Tags    []string  `json:"tags,omitempty"`
-	Created time.Time `json:"created,omitempty"`
+	Created time.Time `json:"created"`
 	Status  Status    `json:"status,omitempty"`
 }
 

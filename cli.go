@@ -1,40 +1,24 @@
 // Package cli builds command-line programs on top of the standard library [flag] package. It adds
-// nested subcommands and lets users place flags anywhere in command arguments.
-//
-// Features:
-//   - Nested subcommands via [Command.SubCommands]
-//   - Flags placed anywhere on the command line
-//   - Parent flags inherited by child commands
-//   - Type-safe flag access via [State.GetFlag]
-//   - Generated help, replaceable per command via [Command.Help]
-//   - "Did you mean" suggestions for misspelled subcommands
-//
-// Quick example:
+// nested subcommands, flags anywhere, inherited flags, generated help, and type-safe flag access.
 //
 //	root := &cli.Command{
-//	    Name:        "echo",
-//	    Usage:       "echo [flags] <text>...",
-//	    Summary:     "Print text",
-//	    Description: "echo prints the provided text.",
+//	    Name: "echo",
 //	    Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
-//	        f.Bool("c", false, "capitalize the input")
+//	        f.Bool("capitalize", false, "capitalize the input")
 //	    }),
 //	    Exec: func(ctx context.Context, s *cli.State) error {
-//	        output := strings.Join(s.Args, " ")
-//	        if s.GetFlag[bool]("c") {
-//	            output = strings.ToUpper(output)
+//	        text := strings.Join(s.Args, " ")
+//	        if s.GetFlag[bool]("capitalize") {
+//	            text = strings.ToUpper(text)
 //	        }
-//	        fmt.Fprintln(s.Stdout, output)
+//	        fmt.Fprintln(s.Stdout, text)
 //	        return nil
 //	    },
 //	}
 //	if err := cli.ParseAndRun(ctx, root, os.Args[1:], nil); err != nil {
-//	    fmt.Fprintf(os.Stderr, "error: %v\n", err)
+//	    fmt.Fprintln(os.Stderr, err)
 //	    os.Exit(1)
 //	}
-//
-// The API is small on purpose. cli uses the standard library flag package instead of replacing it,
-// so most of what you write is your program.
 package cli
 
 import (
@@ -44,8 +28,10 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"runtime"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -55,87 +41,49 @@ import (
 	"github.com/pressly/cli/xflag"
 )
 
-// Command describes a single command in the CLI.
-//
-// Pass a Command to [ParseAndRun] (or [Parse] and [Run]) to run a program. To add a subcommand,
-// list it in another command's [Command.SubCommands].
+// Command describes a command in a CLI.
 type Command struct {
-	// Name is the word users type to pick this command. It must start with a letter and can contain
-	// letters, digits, dashes, or underscores. For the root command it is also the program name
-	// shown in help.
+	// Name identifies the command. It must start with a letter and contain only letters, digits,
+	// dashes, or underscores.
 	Name string
 
-	// Usage replaces the usage line shown at the top of help. Set it to show the expected
-	// arguments. The default usage line shows only the command path, plus "[flags]" when the
-	// command has flags.
+	// Usage overrides the generated usage line. Angle brackets usually mark required arguments,
+	// square brackets optional arguments, and an ellipsis repeated arguments.
 	//
-	// A common convention is to write required values as "<name>", optional values as "[name]", and
-	// repeated values with "...".
-	//
-	//	Example: "todo list <view> [flags]"
-	//	Example: "todo add <text> [flags]"
-	//	Example: "todo remove <id>"
-	//	Example: "echo [flags] <text>..."
-	//	Example: "serve [flags] [addr]"
+	//	Usage: "echo [flags] <text>..."
 	Usage string
 
-	// Summary is the one-line description shown next to this command in its parent's command list.
-	// It is also shown at the top of this command's own help when [Command.Description] is empty.
-	//
-	// Most commands only need Summary. Use [Command.Description] when one line is not enough.
+	// Summary is the one-line description used in command lists and, when Description is empty, in
+	// the command's help.
 	Summary string
 
-	// Description is the longer help text shown at the top of this command's own help. Use it to
-	// explain behavior, defaults, or anything else worth knowing.
-	//
-	// When [Command.Summary] is empty, the first line of Description is used in command lists
-	// instead.
+	// Description is the command's longer help text. Its first line is used in command lists when
+	// Summary is empty.
 	Description string
 
-	// Help replaces the built-in help text for this command. Leave it nil to use the default help.
-	//
-	// The function is given the command and returns the full help string. Help is used for --help
-	// and for [UsageErrorf] errors. Each command can set its own Help, and only the selected
-	// command's Help is called.
+	// Help overrides the generated help for --help and [UsageErrorf] errors on this command.
 	Help func(*Command) string
 
-	// Flags holds this command's flags as a standard library [flag.FlagSet]. Build it with
-	// [flag.NewFlagSet], or use [FlagsFunc] to define flags inline.
-	//
-	// Subcommands inherit these flags unless they are marked [FlagConfig.Local] in
-	// [Command.FlagConfigs]. Read flag values inside [Command.Exec] with [State.GetFlag].
+	// Flags holds this command's [flag.FlagSet]. Subcommands inherit these flags unless they are
+	// marked [FlagConfig.Local].
 	Flags *flag.FlagSet
 
-	// FlagConfigs adds extra behavior to flags already defined in [Command.Flags]. See [FlagConfig]
-	// for the available options.
-	//
-	// Each entry must point to a flag defined in [Command.Flags]. Otherwise [Parse] returns an
-	// error.
+	// FlagConfigs adds behavior to flags already defined in Flags. Each config must name a flag in
+	// Flags.
 	FlagConfigs []FlagConfig
 
-	// SubCommands are the commands users can pick after this command's name.
-	//
-	// When a command has SubCommands, the first non-flag argument must match one of them. An
-	// unknown name returns an "unknown command" error with suggestions. Commands without
-	// SubCommands pass any non-flag arguments through to [State.Args]. Leave [Command.Exec] nil on
-	// a command that only groups subcommands; selecting it without a child returns a usage error.
+	// SubCommands are the commands available below this command. A command that only groups
+	// subcommands may leave Exec nil.
 	SubCommands []*Command
 
-	// Exec is the function that runs when this command is picked. It is given a [State] holding the
-	// parsed inputs the command needs.
-	//
-	// Return [UsageErrorf] for bad arguments or flag combinations so [Run] prints the command's
-	// help to stderr. Return a normal error for everything else; [Run] returns it without printing
-	// help.
+	// Exec runs the selected command. Return [UsageErrorf] for invalid arguments or flag
+	// combinations so [Run] prints the command's help.
 	Exec func(ctx context.Context, s *State) error
 
 	state *State
 }
 
-// Path returns the list of commands from the root down to this command. It is usually called inside
-// [Command.Exec] as s.Cmd.Path() to build error messages that include the full command path.
-//
-// Path returns nil if called before [Parse].
+// Path returns the parsed command path from root to this command, or nil before [Parse].
 func (c *Command) Path() []*Command {
 	if c.state == nil {
 		return nil
@@ -143,67 +91,50 @@ func (c *Command) Path() []*Command {
 	return c.state.path
 }
 
-// FlagConfig adds extra behavior to a single flag already defined in [Command.Flags]. It is used as
-// an entry in [Command.FlagConfigs].
+// FlagConfig adds behavior to a flag already defined in [Command.Flags].
 type FlagConfig struct {
-	// Name is the long flag name as registered in the command's [flag.FlagSet].
+	// Name is the flag's registered name.
 	Name string
 
-	// Short is a one-letter alias for the flag, such as "v" so users can type -v instead of
-	// --verbose. Both forms are shown in help.
+	// Short is a one-letter alias, such as "v" for --verbose.
 	Short string
 
-	// Required, when true, makes [Parse] fail unless the user sets the flag. The default value is
-	// not enough; the user must pass it.
+	// Required makes [Parse] fail unless the user explicitly sets the flag.
 	Required bool
 
-	// Local, when true, keeps the flag on this command only and stops it from being inherited by
-	// subcommands. Parent flags are inherited by default.
+	// Local prevents subcommands from inheriting the flag.
 	Local bool
 }
 
 // FlagName ties a flag name to the type returned by [State.GetFlag].
 type FlagName[T any] string
 
-// State is the value passed to [Command.Exec]. It holds the parsed inputs the command needs to run.
+// State contains the parsed inputs passed to [Command.Exec].
 type State struct {
-	// Args holds the positional arguments left after the command name and flags are parsed.
-	// Anything after "--" is included as-is, even if it looks like a flag.
+	// Args holds positional arguments. Anything after "--" is included as-is.
 	Args []string
 
-	// Stdin, Stdout, and Stderr are the streams to use in your command code instead of os.Stdin,
-	// os.Stdout, and os.Stderr. Tests can swap them via [RunOptions].
+	// Stdin, Stdout, and Stderr are the command's streams.
 	Stdin          io.Reader
 	Stdout, Stderr io.Writer
 
-	// Cmd is the command that was picked. Call Cmd.Path() to get the full list of commands from the
-	// root down, useful for error messages that include the command path.
+	// Cmd is the selected command.
 	Cmd *Command
 
-	// path is the command hierarchy from the root command to the current command. The root command
-	// is the first element in the path, and the terminal command is the last element.
 	path []*Command
 }
 
-// RunOptions replaces the standard streams used by [Run] and [ParseAndRun]. Pass nil for normal
-// programs to use os.Stdin, os.Stdout, and os.Stderr.
-//
-// Use RunOptions in tests, or anywhere you need to capture output or supply your own input.
+// RunOptions replaces the standard streams used by [Run] and [ParseAndRun].
 type RunOptions struct {
-	// Stdin, Stdout, and Stderr replace os.Stdin, os.Stdout, and os.Stderr when set. A nil field
-	// falls back to its os equivalent.
+	// Nil fields default to the corresponding os stream.
 	Stdin          io.Reader
 	Stdout, Stderr io.Writer
 }
 
-// FlagsFunc creates a [flag.FlagSet] inline so you don't have to make one and assign it separately.
-// The returned FlagSet uses [flag.ContinueOnError], so parsing errors are returned instead of being
-// fatal.
+// FlagsFunc builds a [flag.FlagSet] inline using [flag.ContinueOnError].
 //
 //	Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
 //	    f.Bool("verbose", false, "enable verbose output")
-//	    f.String("output", "", "output file")
-//	    f.Int("count", 0, "number of items")
 //	}),
 func FlagsFunc(fn func(f *flag.FlagSet)) (fset *flag.FlagSet) {
 	fset = flag.NewFlagSet("", flag.ContinueOnError)
@@ -217,8 +148,8 @@ func FlagsFunc(fn func(f *flag.FlagSet)) (fset *flag.FlagSet) {
 	return fset
 }
 
-// GetFlag returns a flag value as T, searching the picked command before its parents. Unknown names
-// and type mismatches are programming errors: GetFlag panics, and [Run] returns the error.
+// GetFlag returns a flag value as T, searching the selected command before its parents. Unknown
+// names and type mismatches are programming errors: GetFlag panics, and [Run] returns the error.
 //
 //	verbose := s.GetFlag[bool]("verbose")
 //	const count FlagName[int] = "count"
@@ -228,9 +159,7 @@ func (s *State) GetFlag[T any](name FlagName[T]) T {
 		panic(&internalError{err: errors.New("state is nil")})
 	}
 	flagName := string(name)
-	// Try to find the flag in each command's flag set, starting from the current command
-	for i := len(s.path) - 1; i >= 0; i-- {
-		cmd := s.path[i]
+	for _, cmd := range slices.Backward(s.path) {
 		if cmd.Flags == nil {
 			continue
 		}
@@ -247,13 +176,11 @@ func (s *State) GetFlag[T any](name FlagName[T]) T {
 					value,
 					*new(T),
 				)
-				// Flag exists but type doesn't match - this is an internal error
 				panic(&internalError{err: err})
 			}
 		}
 	}
 
-	// If flag not found anywhere in hierarchy, panic with helpful message
 	err := fmt.Errorf("flag %q not found in command %q flag set",
 		formatFlagName(flagName),
 		getCommandPath(s.path),
@@ -261,12 +188,8 @@ func (s *State) GetFlag[T any](name FlagName[T]) T {
 	panic(&internalError{err: err})
 }
 
-// Parse picks the right command and parses its flags from args, but does not run [Command.Exec].
-// Use Parse with [Run] when you need to do work between parsing and running. For the common case,
-// call [ParseAndRun].
-//
-// Parse returns [flag.ErrHelp] when the user passes -h or --help. You have to print the help
-// yourself when this happens. [ParseAndRun] does it for you.
+// Parse selects a command and parses its flags without running it. It returns [flag.ErrHelp] for -h
+// or --help; [ParseAndRun] handles that case automatically.
 func Parse(root *Command, args []string) error {
 	if root == nil {
 		return errors.New("root command is nil")
@@ -296,7 +219,6 @@ func Parse(root *Command, args []string) error {
 	root.state.Cmd = current
 	current.Flags.Usage = func() { /* suppress default usage */ }
 
-	// Check for help flags after resolving the correct command
 	for _, arg := range argsToParse {
 		if arg == "-h" || arg == "--h" || arg == "-help" || arg == "--help" {
 			return flag.ErrHelp
@@ -305,7 +227,6 @@ func Parse(root *Command, args []string) error {
 
 	combinedFlags := combineFlags(root.state.path)
 
-	// Let ParseToEnd handle the flag parsing
 	if err := xflag.ParseToEnd(combinedFlags, argsToParse); err != nil {
 		return fmt.Errorf("command %q: %w", getCommandPath(root.state.path), err)
 	}
@@ -326,12 +247,8 @@ func Parse(root *Command, args []string) error {
 	return nil
 }
 
-// Run runs the command picked by a previous call to [Parse]. Use Run only when you call [Parse]
-// separately. For the common case, use [ParseAndRun].
-//
-// If [Command.Exec] returns an error created by [UsageErrorf], Run prints the command's help to
-// stderr and returns the error you passed to [UsageErrorf]. Other errors are returned as-is. A nil
-// ctx defaults to [context.Background].
+// Run executes the command selected by [Parse]. Usage errors print help to stderr; other errors are
+// returned as-is. A nil ctx uses [context.Background].
 func Run(ctx context.Context, root *Command, options *RunOptions) error {
 	if ctx == nil {
 		ctx = context.Background()
@@ -344,7 +261,6 @@ func Run(ctx context.Context, root *Command, options *RunOptions) error {
 	}
 	cmd := root.terminal()
 	if cmd == nil {
-		// This should never happen, but if it does, it's likely a bug in the Parse function.
 		return errors.New("no terminal command found")
 	}
 
@@ -354,17 +270,13 @@ func Run(ctx context.Context, root *Command, options *RunOptions) error {
 	return run(ctx, cmd, root.state)
 }
 
-// ParseAndRun parses args, picks the right command, and runs its [Command.Exec]. This is the normal
-// way to start a CLI program:
+// ParseAndRun parses args and runs the selected command. It prints help and returns nil for -h or
+// --help.
 //
 //	if err := cli.ParseAndRun(ctx, root, os.Args[1:], nil); err != nil {
 //	    fmt.Fprintf(os.Stderr, "error: %v\n", err)
 //	    os.Exit(1)
 //	}
-//
-// When the user passes -h or --help, ParseAndRun prints the picked command's help to stdout and
-// returns nil. Use [Parse] and [Run] separately when you need to do work between parsing and
-// running, such as setting up resources based on parsed flags.
 func ParseAndRun(ctx context.Context, root *Command, args []string, options *RunOptions) error {
 	if err := Parse(root, args); err != nil {
 		if errors.Is(err, flag.ErrHelp) {
@@ -372,8 +284,7 @@ func ParseAndRun(ctx context.Context, root *Command, args []string, options *Run
 			_, _ = fmt.Fprintln(options.Stdout, help(root))
 			return nil
 		}
-		var usageErr *usageError
-		if errors.As(err, &usageErr) {
+		if usageErr, ok := errors.AsType[*usageError](err); ok {
 			options = checkAndSetRunOptions(options)
 			_, _ = fmt.Fprintf(options.Stderr, "%s\n\n", help(root))
 			return usageErr.Unwrap()
@@ -383,15 +294,12 @@ func ParseAndRun(ctx context.Context, root *Command, args []string, options *Run
 	return Run(ctx, root, options)
 }
 
-// UsageErrorf returns an error that means the command was used incorrectly. Return it from
-// [Command.Exec] when the command itself was right but the arguments or flag combination are wrong:
+// UsageErrorf returns an error for invalid command arguments or flag combinations. [Run] prints the
+// command's help before returning the underlying error.
 //
 //	if len(s.Args) == 0 {
 //	    return cli.UsageErrorf("must supply a name")
 //	}
-//
-// When [Run] sees a UsageErrorf error, it prints the command's help to stderr and returns the error
-// message you passed in. Return a normal error if you do not want help printed.
 func UsageErrorf(format string, args ...any) error {
 	return &usageError{err: fmt.Errorf(format, args...)}
 }
@@ -413,9 +321,7 @@ func run(ctx context.Context, cmd *Command, state *State) (retErr error) {
 		if r := recover(); r != nil {
 			switch err := r.(type) {
 			case error:
-				// If error is from cli package (e.g., flag type mismatch), don't add location info
-				var intErr *internalError
-				if errors.As(err, &intErr) {
+				if _, ok := errors.AsType[*internalError](err); ok {
 					retErr = err
 				} else {
 					retErr = fmt.Errorf("panic: %v\n\n%s", err, location(4))
@@ -426,8 +332,7 @@ func run(ctx context.Context, cmd *Command, state *State) (retErr error) {
 		}
 	}()
 	err := cmd.Exec(ctx, state)
-	var usageErr *usageError
-	if errors.As(err, &usageErr) {
+	if usageErr, ok := errors.AsType[*usageError](err); ok {
 		_, _ = fmt.Fprintf(state.Stderr, "%s\n\n", help(state.Cmd))
 		return usageErr.Unwrap()
 	}
@@ -529,8 +434,7 @@ func helpFlagConfigs(configs []FlagConfig) []helpdoc.FlagConfig {
 	return out
 }
 
-// internalError is a marker type for errors that originate from the cli package itself. These are
-// programming errors (e.g., flag type mismatches) that should be caught during development.
+// internalError marks programmer errors that Run returns without adding a panic location.
 type internalError struct {
 	err error
 }
@@ -568,12 +472,9 @@ func (c *Command) terminal() *Command {
 	if c.state == nil || len(c.state.path) == 0 {
 		return c
 	}
-	// Get the last command in the path - this is our terminal command
 	return c.state.path[len(c.state.path)-1]
 }
 
-// findSubCommand searches for a subcommand by name and returns it if found. Returns nil if no
-// subcommand with the given name exists.
 func (c *Command) findSubCommand(name string) *Command {
 	for _, sub := range c.SubCommands {
 		if strings.EqualFold(sub.Name, name) {
@@ -625,7 +526,7 @@ func getGoModuleName() string {
 
 func location(skip int) string {
 	var pcs [1]uintptr
-	// Need to add 2 to skip to account for this function and runtime.Callers
+	// Skip location and runtime.Callers.
 	n := runtime.Callers(skip+2, pcs[:])
 	if n == 0 {
 		return "unknown:0"
@@ -633,22 +534,13 @@ func location(skip int) string {
 
 	frame, _ := runtime.CallersFrames(pcs[:n]).Next()
 
-	// Trim the module name from function and file paths for cleaner output. Function names use the
-	// module path directly (e.g., "github.com/pressly/cli.Run").
-	fn := strings.TrimPrefix(frame.Function, getGoModuleName()+"/")
-	// File paths from runtime are absolute (e.g., "/Users/.../cli/run.go"). We want a relative path
-	// for cleaner output. Try to find the module's import path in the filesystem path (works with
-	// GOPATH-style layouts), otherwise fall back to just the base filename.
-	file := frame.File
 	mod := getGoModuleName()
+	fn := strings.TrimPrefix(frame.Function, mod+"/")
+	file := filepath.Base(frame.File)
 	if mod != "" {
-		if idx := strings.Index(file, mod+"/"); idx != -1 {
-			file = file[idx+len(mod)+1:]
-		} else {
-			file = file[strings.LastIndex(file, "/")+1:]
+		if _, relative, ok := strings.Cut(frame.File, mod+"/"); ok {
+			file = relative
 		}
-	} else {
-		file = file[strings.LastIndex(file, "/")+1:]
 	}
 
 	return fn + " " + file + ":" + strconv.Itoa(frame.Line)

@@ -2,6 +2,7 @@ package textutil
 
 import "strings"
 
+// Wrap wraps text to width at word boundaries.
 func Wrap(text string, width int) []string {
 	words := strings.Fields(text)
 	var (

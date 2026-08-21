@@ -1,8 +1,4 @@
-// Package usage contains experimental building blocks for command help documents.
-//
-// It is internal while the public usage API is still being refined. Generated help prefers
-// cli.Command.Description for the command's long help text and cli.Command.Summary for command
-// lists, with fallbacks for simple commands that only set one field.
+// Package usage builds and renders command help.
 package usage
 
 import (
@@ -28,46 +24,32 @@ type Item struct {
 }
 
 // Text returns an untitled paragraph block.
-//
-// Use Text for descriptions, notes, or closing hints.
 func Text(lines ...string) Block {
 	return Block{block: helpdoc.Text(lines...)}
 }
 
 // Lines returns a titled block of indented lines.
-//
-// Use Lines for sections such as Usage or Examples where each line should stand on its own.
 func Lines(heading string, lines ...string) Block {
 	return Block{block: helpdoc.Lines(heading, lines...)}
 }
 
-// List returns a titled list of name/summary pairs.
-//
-// Use List for aligned sections such as commands, flags, or named examples.
+// List returns a titled list of name and summary pairs.
 func List(heading string, items ...Item) Block {
 	return Block{block: helpdoc.List(heading, helpItems(items)...)}
 }
 
-// String renders the full help document as a string.
-//
-// Use String when returning help from cli.Command.Help or when comparing help text in tests.
+// String renders the document.
 func (d Document) String() string {
 	return d.helpdoc().String()
 }
 
-// WriteTo writes the help document to w.
-//
-// Use WriteTo when streaming help directly to stdout, stderr, or another writer.
+// WriteTo writes the document to w.
 func (d Document) WriteTo(w io.Writer) (int64, error) {
 	return d.helpdoc().WriteTo(w)
 }
 
-// New returns the default help document for cmd.
-//
-// Use New from cli.Command.Help when you want to keep the built-in help layout and add or reorder
-// sections before returning the final string. The document starts with Description when set, or
-// Summary otherwise. Subcommand lists use Summary when set, or the first line of Description
-// otherwise. Use New, not Help, inside a cli.Command.Help hook so the hook does not call itself.
+// New returns the default help document for cmd. Use it inside a [cli.Command.Help] hook to avoid
+// calling the hook recursively.
 func New(cmd *cli.Command) Document {
 	cmd = resolveCommand(cmd)
 	if cmd == nil {
@@ -76,12 +58,7 @@ func New(cmd *cli.Command) Document {
 	return fromHelpDoc(helpdoc.New(helpPath(cmd)))
 }
 
-// Help returns help text for cmd.
-//
-// Use Help when handling flag.ErrHelp yourself after calling cli.Parse directly. It returns the
-// same text cli.ParseAndRun prints for --help: if the resolved command has a cli.Command.Help hook,
-// Help returns that hook's output; otherwise, it renders the default document from New. Inside a
-// cli.Command.Help hook, use New instead.
+// Help returns custom help for cmd when configured, otherwise the default help from [New].
 func Help(cmd *cli.Command) string {
 	cmd = resolveCommand(cmd)
 	if cmd == nil {

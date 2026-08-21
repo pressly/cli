@@ -3,7 +3,8 @@ package flagtype
 import (
 	"flag"
 	"fmt"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 )
 
@@ -11,11 +12,8 @@ type stringMapValue struct {
 	m map[string]string
 }
 
-// StringMap returns a [flag.Value] that parses key=value pairs into a map. The flag can be repeated
-// to add multiple entries, like --label=env=prod --label=tier=web. The value is split on the first
-// "=" character, so values may contain additional "=" characters.
-//
-// Use [cli.State.GetFlag] with type map[string]string to retrieve the value.
+// StringMap returns a repeatable [flag.Value] that parses key=value pairs. Values may contain "=";
+// the result is retrieved as map[string]string.
 func StringMap() flag.Value {
 	return &stringMapValue{}
 }
@@ -24,12 +22,7 @@ func (v *stringMapValue) String() string {
 	if v.m == nil {
 		return ""
 	}
-	// Sort keys for deterministic output.
-	keys := make([]string, 0, len(v.m))
-	for k := range v.m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+	keys := slices.Sorted(maps.Keys(v.m))
 	pairs := make([]string, 0, len(keys))
 	for _, k := range keys {
 		pairs = append(pairs, k+"="+v.m[k])

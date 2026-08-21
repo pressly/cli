@@ -10,8 +10,6 @@ import (
 	"strings"
 )
 
-// splitAtDelimiter splits args at the first "--" delimiter. Returns the args before the delimiter
-// and any args after it.
 func splitAtDelimiter(args []string) (argsToParse, remaining []string) {
 	for i, arg := range args {
 		if arg == "--" {
@@ -21,8 +19,6 @@ func splitAtDelimiter(args []string) (argsToParse, remaining []string) {
 	return args, nil
 }
 
-// resolveCommandPath walks argsToParse to resolve the subcommand chain, building root.state.path
-// and initializing flag sets along the way. Returns the terminal (deepest) command.
 func resolveCommandPath(root *Command, argsToParse []string) (*Command, error) {
 	current := root
 	if current.Flags == nil {
@@ -33,29 +29,22 @@ func resolveCommandPath(root *Command, argsToParse []string) (*Command, error) {
 	for i < len(argsToParse) {
 		arg := argsToParse[i]
 
-		// Skip flags and their values
 		if strings.HasPrefix(arg, "-") {
-			// For formats like -flag=x or --flag=x
 			if strings.Contains(arg, "=") {
 				i++
 				continue
 			}
 
-			// Check if this flag expects a value across all commands in the chain (not just the
-			// current command), since flags from ancestor commands are inherited and can appear
-			// anywhere. Also check short flag aliases from FlagConfigs.
+			// A parent flag may appear before a subcommand, so inspect the full path before
+			// deciding whether the next argument is its value.
 			name := strings.TrimLeft(arg, "-")
 			skipValue := false
 			for _, cmd := range root.state.path {
 				localFlags := localFlagSet(cmd.FlagConfigs)
-				// Skip local flags on ancestor commands (any command already in the path is an
-				// ancestor of the not-yet-resolved terminal command).
 				if localFlags[name] {
 					continue
 				}
-				// First try direct lookup.
 				f := cmd.Flags.Lookup(name)
-				// If not found, check if it's a short alias.
 				if f == nil {
 					for _, flagConfig := range cmd.FlagConfigs {
 						if flagConfig.Short == name {
@@ -75,7 +64,6 @@ func resolveCommandPath(root *Command, argsToParse []string) (*Command, error) {
 				}
 			}
 			if skipValue {
-				// Skip both flag and its value
 				i += 2
 				continue
 			}
@@ -83,7 +71,6 @@ func resolveCommandPath(root *Command, argsToParse []string) (*Command, error) {
 			continue
 		}
 
-		// Try to traverse to subcommand
 		if len(current.SubCommands) > 0 {
 			if sub := current.findSubCommand(arg); sub != nil {
 				root.state.path = append(slices.Clone(root.state.path), sub)
@@ -112,9 +99,7 @@ func clearCommandState(cmd *Command) {
 	}
 }
 
-// combineFlags merges flags from the command path into a single FlagSet. Flags are added in reverse
-// order (deepest command first) so that child flags take precedence over parent flags. Short flag
-// aliases from FlagConfigs are also registered, sharing the same Value as their long counterpart.
+// combineFlags adds child flags first so they take precedence over inherited flags.
 func combineFlags(path []*Command) *flag.FlagSet {
 	combined := flag.NewFlagSet(path[0].Name, flag.ContinueOnError)
 	combined.SetOutput(io.Discard)
@@ -135,7 +120,6 @@ func combineFlags(path []*Command) *flag.FlagSet {
 			if combined.Lookup(f.Name) == nil {
 				combined.Var(f.Value, f.Name, f.Usage)
 			}
-			// Register the short alias pointing to the same Value.
 			if short, ok := shortMap[f.Name]; ok {
 				if combined.Lookup(short) == nil {
 					combined.Var(f.Value, short, f.Usage)
@@ -146,7 +130,6 @@ func combineFlags(path []*Command) *flag.FlagSet {
 	return combined
 }
 
-// localFlagSet builds a set of flag names that are marked as local in FlagConfigs.
 func localFlagSet(configs []FlagConfig) map[string]bool {
 	m := make(map[string]bool, len(configs))
 	for _, flagConfig := range configs {
@@ -157,7 +140,6 @@ func localFlagSet(configs []FlagConfig) map[string]bool {
 	return m
 }
 
-// shortFlagMap builds a map from long flag name to short alias from FlagConfigs.
 func shortFlagMap(configs []FlagConfig) map[string]string {
 	m := make(map[string]string, len(configs))
 	for _, flagConfig := range configs {
@@ -168,11 +150,8 @@ func shortFlagMap(configs []FlagConfig) map[string]string {
 	return m
 }
 
-// checkRequiredFlags verifies that all flags marked as required in FlagConfigs were explicitly set
-// during parsing.
 func checkRequiredFlags(path []*Command, combined *flag.FlagSet) error {
-	// Build a set of flags that were explicitly set during parsing. Visit (unlike VisitAll) only
-	// iterates over flags that were actually provided by the user, regardless of their value.
+	// Visit reports flags explicitly set by the user, including explicit zero values.
 	setFlags := make(map[string]struct{})
 	combined.Visit(func(f *flag.Flag) {
 		setFlags[f.Name] = struct{}{}
@@ -185,7 +164,6 @@ func checkRequiredFlags(path []*Command, combined *flag.FlagSet) error {
 			if !flagConfig.Required {
 				continue
 			}
-			// Skip required-flag checks for local flags on ancestor commands.
 			if flagConfig.Local && i < terminalIdx {
 				continue
 			}
@@ -207,14 +185,10 @@ func checkRequiredFlags(path []*Command, combined *flag.FlagSet) error {
 	return nil
 }
 
-// collectArgs strips resolved command names from the parsed positional args and appends any args
-// that appeared after the "--" delimiter.
+// collectArgs removes the resolved command path and restores arguments after "--".
 func collectArgs(path []*Command, parsed, remaining []string) []string {
-	// Skip past command names in remaining args. Only strip the exact command names that were
-	// resolved during traversal (path[1:], since root never appears in user args), in order and
-	// only once each.
 	startIdx := 0
-	chainIdx := 1 // Skip root
+	chainIdx := 1 // The root name is not part of args.
 	for startIdx < len(parsed) && chainIdx < len(path) {
 		if strings.EqualFold(parsed[startIdx], path[chainIdx].Name) {
 			startIdx++
@@ -276,9 +250,6 @@ func commandDefinitionError(path []string, err error) error {
 	return fmt.Errorf("command %q: %w", strings.Join(path, " "), err)
 }
 
-// validateFlagConfigs checks that each FlagConfig entry refers to a flag that exists in the
-// command's FlagSet, that Short aliases are single ASCII letters, and that no two entries share the
-// same Short alias.
 func validateFlagConfigs(cmd *Command) error {
 	if len(cmd.FlagConfigs) == 0 {
 		return nil

@@ -232,7 +232,6 @@ func TestRegexp(t *testing.T) {
 	})
 }
 
-// nopWriter discards all writes, used to suppress flag.FlagSet error output in tests.
 type nopWriter struct{}
 
 func (nopWriter) Write(p []byte) (int, error) { return len(p), nil }

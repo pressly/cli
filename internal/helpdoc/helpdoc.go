@@ -255,7 +255,7 @@ func commandListSummary(cmd Command) string {
 }
 
 func firstLine(text string) string {
-	for _, line := range strings.Split(text, "\n") {
+	for line := range strings.SplitSeq(text, "\n") {
 		line = strings.TrimSpace(line)
 		if line != "" {
 			return line
@@ -354,10 +354,7 @@ func writeItems(w io.Writer, items []Item) (int64, error) {
 	}
 
 	summaryIndent := maxNameLen + 6
-	wrapWidth := defaultTerminalWidth - summaryIndent
-	if wrapWidth < 20 {
-		wrapWidth = 20
-	}
+	wrapWidth := max(defaultTerminalWidth-summaryIndent, 20)
 
 	for _, item := range items {
 		if item.Summary == "" {

@@ -7,6 +7,10 @@ adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- Typed `FlagName` values that let `State.GetFlag` infer its return type
+
 ### Changed
 
 - **BREAKING**: Replace the top-level `GetFlag` function with the generic `State.GetFlag` method

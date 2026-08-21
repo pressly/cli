@@ -10,17 +10,18 @@ import (
 	"github.com/pressly/cli"
 )
 
+const capitalize cli.FlagName[bool] = "capitalize"
+
 func main() {
 	root := &cli.Command{
 		Name:  "echo",
 		Usage: "echo [flags] <text>...",
 		Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
-			f.Bool("capitalize", false, "capitalize the input")
+			f.Bool(string(capitalize), false, "capitalize the input")
 		}),
 		Exec: func(ctx context.Context, s *cli.State) error {
 			text := strings.Join(s.Args, " ")
-			// GetFlag uses generic methods, available in Go 1.27 or later.
-			if s.GetFlag[bool]("capitalize") {
+			if s.GetFlag(capitalize) {
 				text = strings.ToUpper(text)
 			}
 			fmt.Fprintln(s.Stdout, text)

@@ -162,6 +162,9 @@ type FlagConfig struct {
 	Local bool
 }
 
+// FlagName ties a flag name to the type returned by [State.GetFlag].
+type FlagName[T any] string
+
 // State is the value passed to [Command.Exec]. It holds the parsed inputs the command needs to run.
 type State struct {
 	// Args holds the positional arguments left after the command name and flags are parsed.
@@ -214,20 +217,17 @@ func FlagsFunc(fn func(f *flag.FlagSet)) (fset *flag.FlagSet) {
 	return fset
 }
 
-// GetFlag returns the value of a flag as type T. Call it from inside [Command.Exec] with the same
-// Go type that was used when the flag was defined.
-//
-// GetFlag looks for the flag on the picked command first, then in its parent commands. A flag
-// defined on the root command can be read from any subcommand. An unknown flag name or a wrong type
-// is a programming error: GetFlag panics, and [Run] catches the panic and returns the error.
+// GetFlag returns a flag value as T, searching the picked command before its parents. Unknown names
+// and type mismatches are programming errors: GetFlag panics, and [Run] returns the error.
 //
 //	verbose := s.GetFlag[bool]("verbose")
-//	count   := s.GetFlag[int]("count")
-//	path    := s.GetFlag[string]("path")
-func (s *State) GetFlag[T any](name string) T {
+//	const count FlagName[int] = "count"
+//	n := s.GetFlag(count)
+func (s *State) GetFlag[T any](name FlagName[T]) T {
 	if s == nil {
 		panic(&internalError{err: errors.New("state is nil")})
 	}
+	flagName := string(name)
 	// Try to find the flag in each command's flag set, starting from the current command
 	for i := len(s.path) - 1; i >= 0; i-- {
 		cmd := s.path[i]
@@ -235,14 +235,14 @@ func (s *State) GetFlag[T any](name string) T {
 			continue
 		}
 
-		if f := cmd.Flags.Lookup(name); f != nil {
+		if f := cmd.Flags.Lookup(flagName); f != nil {
 			if getter, ok := f.Value.(flag.Getter); ok {
 				value := getter.Get()
 				if v, ok := value.(T); ok {
 					return v
 				}
 				err := fmt.Errorf("type mismatch for flag %q in command %q: registered %T, requested %T",
-					formatFlagName(name),
+					formatFlagName(flagName),
 					getCommandPath(s.path),
 					value,
 					*new(T),
@@ -255,7 +255,7 @@ func (s *State) GetFlag[T any](name string) T {
 
 	// If flag not found anywhere in hierarchy, panic with helpful message
 	err := fmt.Errorf("flag %q not found in command %q flag set",
-		formatFlagName(name),
+		formatFlagName(flagName),
 		getCommandPath(s.path),
 	)
 	panic(&internalError{err: err})

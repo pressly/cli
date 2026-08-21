@@ -13,6 +13,15 @@ way.
 
 Docs: <https://pressly.github.io/cli>
 
+## Packages
+
+- [`flagtype`](flagtype/README.md) adds common `flag.Value` types for slices, enums, maps, URLs,
+  and regular expressions. Useful when the standard library's built-in flag types are not enough.
+- [`graceful`](graceful/README.md) runs servers, workers, and batch jobs with signal-aware
+  cancellation and bounded shutdown.
+- [`xflag`](xflag/README.md) parses flags anywhere in the argument list. It is useful with the
+  standard library's `flag` package when `cmd arg --flag` should work like `cmd --flag arg`.
+
 ## Installation
 
 ```bash

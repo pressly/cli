@@ -68,7 +68,8 @@ graceful.Run(func(ctx context.Context) error {
 
 ### `WithRunTimeout(time.Duration)`
 
-Maximum time the run function may execute. Useful for batch jobs or preventing runaway processes.
+Cancels the run context after the given duration. The function must return when its context is
+canceled; use `WithTerminationTimeout` to bound shutdown.
 
 ### `WithTerminationTimeout(time.Duration)`
 

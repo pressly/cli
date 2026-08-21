@@ -10,7 +10,6 @@ import (
 	"time"
 )
 
-// captureExitCode intercepts os.Exit calls and returns the exit code.
 func captureExitCode(t *testing.T, fn func()) int {
 	t.Helper()
 
@@ -34,7 +33,6 @@ func captureExitCode(t *testing.T, fn func()) int {
 	}
 }
 
-// sendSignal sends a signal after a channel is closed
 func sendSignal(trigger <-chan struct{}, delay time.Duration) {
 	<-trigger
 	if delay > 0 {
@@ -108,7 +106,6 @@ func TestRun_GracefulCompletionAfterSignal(t *testing.T) {
 	code := captureExitCode(t, func() {
 		go sendSignal(started, 0)
 
-		// Simulate cleanup completing after signal
 		go func() {
 			<-started
 			time.Sleep(20 * time.Millisecond)
@@ -179,8 +176,6 @@ func TestRun_ImmediateTermination(t *testing.T) {
 		Run(func(ctx context.Context) error {
 			close(started)
 			<-ctx.Done()
-			// Even though we block forever here, WithImmediateTermination should cause immediate
-			// exit without waiting for function completion
 			select {}
 		}, WithImmediateTermination())
 	})

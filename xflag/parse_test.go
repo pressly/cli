@@ -119,7 +119,6 @@ func TestParseToEnd(t *testing.T) {
 		fs, c := newFlagset()
 		err := ParseToEnd(fs, []string{"arg1", "arg2", "arg3"})
 		require.NoError(t, err)
-		// All flags should retain defaults.
 		require.Equal(t, config{flag1: "asdf", flag2: "qwerty", flag3: false, flag4: true}, *c)
 		require.Equal(t, 0, fs.NFlag())
 		require.Equal(t, []string{"arg1", "arg2", "arg3"}, fs.Args())

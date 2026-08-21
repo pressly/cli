@@ -9,10 +9,7 @@ type regexpValue struct {
 	re *regexp.Regexp
 }
 
-// Regexp returns a [flag.Value] that compiles the flag value as a regular expression. If the
-// pattern is invalid, an error is returned.
-//
-// Use [cli.State.GetFlag] with type *regexp.Regexp to retrieve the value.
+// Regexp returns a [flag.Value] that compiles its input as a regular expression.
 func Regexp() flag.Value {
 	return &regexpValue{}
 }

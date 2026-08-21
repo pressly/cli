@@ -229,7 +229,6 @@ func taskRemove() *cli.Command {
 						return nil
 					}
 				}
-				// add a confirmation prompt
 				return Save(file, &TaskList{})
 			}
 			return nil

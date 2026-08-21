@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// testState is a helper struct to hold the commands for testing
+// testState defines this command tree:
 //
 //	root --verbose --version
 //	├── add --dry-run
@@ -350,7 +350,6 @@ func TestParse(t *testing.T) {
 			require.ErrorContains(t, err, `command "todo nested hello": required flags "-mandatory-flag, -another-mandatory-flag" not set`)
 		}
 		{
-			// Correct type - true
 			s := newTestState()
 			err := Parse(s.root, []string{"nested", "hello", "--mandatory-flag=true", "--another-mandatory-flag", "some-value"})
 			require.NoError(t, err)
@@ -360,7 +359,6 @@ func TestParse(t *testing.T) {
 			require.True(t, s.root.state.GetFlag[bool]("mandatory-flag"))
 		}
 		{
-			// Correct type - false
 			s := newTestState()
 			err := Parse(s.root, []string{"nested", "hello", "--mandatory-flag=false", "--another-mandatory-flag=some-value"})
 			require.NoError(t, err)
@@ -369,7 +367,6 @@ func TestParse(t *testing.T) {
 			require.False(t, s.root.state.GetFlag[bool]("mandatory-flag"))
 		}
 		{
-			// Incorrect type
 			s := newTestState()
 			err := Parse(s.root, []string{"nested", "hello", "--mandatory-flag=not-a-bool"})
 			require.Error(t, err)
@@ -634,7 +631,7 @@ func TestParse(t *testing.T) {
 	t.Run("many subcommands", func(t *testing.T) {
 		t.Parallel()
 		var subcommands []*Command
-		for i := 0; i < 25; i++ {
+		for i := range 25 {
 			subcommands = append(subcommands, &Command{
 				Name: "cmd" + string(rune('a'+i%26)),
 				Exec: func(ctx context.Context, s *State) error { return nil },
@@ -658,10 +655,8 @@ func TestParse(t *testing.T) {
 				{Name: "duplicate", Exec: func(ctx context.Context, s *State) error { return nil }},
 			},
 		}
-		// This library may not check for duplicate names, so just verify it works
 		err := Parse(cmd, []string{"duplicate"})
 		require.NoError(t, err)
-		// Just ensure it doesn't crash and can parse the first match
 	})
 	t.Run("flag config for non-existent flag", func(t *testing.T) {
 		t.Parallel()
@@ -698,7 +693,7 @@ func TestParse(t *testing.T) {
 			Exec: func(ctx context.Context, s *State) error { return nil },
 		}
 		var longArgList []string
-		for i := 0; i < 100; i++ {
+		for i := range 100 {
 			longArgList = append(longArgList, "arg"+string(rune('0'+i%10)))
 		}
 		err := Parse(cmd, longArgList)
@@ -762,7 +757,6 @@ func TestParse(t *testing.T) {
 			Exec: func(ctx context.Context, s *State) error { return nil },
 		}
 
-		// Explicitly passing the default value should satisfy the required check.
 		err := Parse(root, []string{"--port", "8080"})
 		require.NoError(t, err, "explicitly setting required flag to its default value should not fail")
 		assert.Equal(t, "8080", root.state.GetFlag[string]("port"))
@@ -782,7 +776,6 @@ func TestParse(t *testing.T) {
 			Exec: func(ctx context.Context, s *State) error { return nil },
 		}
 
-		// --force-all should NOT satisfy the required --force flag.
 		err := Parse(root, []string{"--force-all"})
 		require.Error(t, err, "--force-all should not satisfy required --force")
 		assert.Contains(t, err.Error(), "required flag")
@@ -886,10 +879,8 @@ func TestShortFlags(t *testing.T) {
 			},
 			Exec: func(ctx context.Context, s *State) error { return nil },
 		}
-		// Use short flag
 		err := Parse(cmd, []string{"-c", "42"})
 		require.NoError(t, err)
-		// Both short and long name should return the same value
 		require.Equal(t, 42, cmd.state.GetFlag[int]("count"))
 	})
 
@@ -985,12 +976,10 @@ func TestLocalFlags(t *testing.T) {
 			SubCommands: []*Command{child},
 			Exec:        func(ctx context.Context, s *State) error { return nil },
 		}
-		// --version on child should fail because it's local to root
 		err := Parse(root, []string{"child", "--version"})
 		require.Error(t, err)
 		require.ErrorContains(t, err, "flag provided but not defined")
 
-		// --verbose on child should still work (not local)
 		root2 := &Command{
 			Name: "root",
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
@@ -1045,11 +1034,9 @@ func TestLocalFlags(t *testing.T) {
 			SubCommands: []*Command{child},
 			Exec:        func(ctx context.Context, s *State) error { return nil },
 		}
-		// Child command should not require parent's local required flag
 		err := Parse(root, []string{"child"})
 		require.NoError(t, err)
 
-		// But root command itself should still require it
 		root2 := &Command{
 			Name: "root",
 			Flags: FlagsFunc(func(f *flag.FlagSet) {
@@ -1090,11 +1077,8 @@ func TestLocalFlags(t *testing.T) {
 		require.ErrorIs(t, err, flag.ErrHelp)
 
 		usage := help(root)
-		// --verbose should appear in inherited flags (not local)
 		assert.Contains(t, usage, "--verbose")
-		// --version should NOT appear (local to root, not inherited)
 		assert.NotContains(t, usage, "--version")
-		// --dry-run should appear in local flags
 		assert.Contains(t, usage, "--dry-run")
 	})
 
@@ -1115,7 +1099,6 @@ func TestLocalFlags(t *testing.T) {
 			SubCommands: []*Command{child},
 			Exec:        func(ctx context.Context, s *State) error { return nil },
 		}
-		// Short alias -V should also not work on child
 		err := Parse(root, []string{"child", "-V"})
 		require.Error(t, err)
 		require.ErrorContains(t, err, "flag provided but not defined")
@@ -1169,14 +1152,12 @@ func TestCommandPath(t *testing.T) {
 		err := Parse(root, []string{"parent", "child"})
 		require.NoError(t, err)
 
-		// Test path from root command (which contains state)
 		path := root.Path()
 		require.Len(t, path, 3)
 		require.Equal(t, "root", path[0].Name)
 		require.Equal(t, "parent", path[1].Name)
 		require.Equal(t, "child", path[2].Name)
 
-		// Navigate to terminal command to verify it's the child
 		terminal := root.terminal()
 		require.Equal(t, child, terminal)
 	})
@@ -1227,7 +1208,6 @@ func TestCommandPath(t *testing.T) {
 			Exec: func(ctx context.Context, s *State) error { return nil },
 		}
 
-		// Path should return nil before parsing
 		path := cmd.Path()
 		require.Nil(t, path)
 	})
@@ -1249,7 +1229,6 @@ func TestCommandPath(t *testing.T) {
 			SubCommands: []*Command{parent},
 		}
 
-		// Parse to parent level, not child
 		err := Parse(root, []string{"parent"})
 		require.NoError(t, err)
 
@@ -1261,7 +1240,6 @@ func TestCommandPath(t *testing.T) {
 		require.Equal(t, "root", path[0].Name)
 		require.Equal(t, "parent", path[1].Name)
 
-		// Child's path should be nil since it hasn't been parsed in context
 		childPath := child.Path()
 		require.Nil(t, childPath)
 	})
@@ -1282,7 +1260,6 @@ func TestCommandPath(t *testing.T) {
 			SubCommands: []*Command{child1, child2},
 		}
 
-		// Parse to first child
 		err := Parse(root, []string{"child1"})
 		require.NoError(t, err)
 
@@ -1294,7 +1271,6 @@ func TestCommandPath(t *testing.T) {
 		require.Equal(t, "root", path[0].Name)
 		require.Equal(t, "child1", path[1].Name)
 
-		// Parse to second child
 		err = Parse(root, []string{"child2"})
 		require.NoError(t, err)
 
@@ -1353,7 +1329,6 @@ func TestCommandPath(t *testing.T) {
 			SubCommands: []*Command{parent},
 		}
 
-		// Parse multiple times to different levels
 		err := Parse(root, []string{"parent"})
 		require.NoError(t, err)
 
@@ -1447,7 +1422,6 @@ func TestTerminalCommand(t *testing.T) {
 			Exec: func(ctx context.Context, s *State) error { return nil },
 		}
 
-		// terminal() should return the command itself before parsing
 		terminal := cmd.terminal()
 		require.Equal(t, cmd, terminal)
 	})
@@ -1469,7 +1443,6 @@ func TestTerminalCommand(t *testing.T) {
 			SubCommands: []*Command{parent},
 		}
 
-		// Parse only to parent level
 		err := Parse(root, []string{"parent"})
 		require.NoError(t, err)
 
@@ -1540,13 +1513,11 @@ func TestRun(t *testing.T) {
 		}
 		err := Parse(root, nil)
 		require.NoError(t, err)
-		// Run the command 3 times
-		for i := 0; i < 3; i++ {
+		for range 3 {
 			err := Run(context.Background(), root, nil)
 			require.NoError(t, err)
 		}
 		require.Equal(t, 3, count)
-		// Run with dry-run flag
 		err = Parse(root, []string{"--dry-run"})
 		require.NoError(t, err)
 		err = Run(context.Background(), root, nil)
@@ -1610,7 +1581,6 @@ func TestRun(t *testing.T) {
 				f.String("value", "default", "test value")
 			}),
 			Exec: func(ctx context.Context, s *State) error {
-				// Simulate concurrent access to state
 				go func() {
 					_ = s.GetFlag[string]("value")
 				}()
@@ -1659,17 +1629,14 @@ func TestRun(t *testing.T) {
 			Exec: func(ctx context.Context, s *State) error { return nil },
 		}
 
-		// Test max int
 		err := Parse(root, []string{"--int", "2147483647"})
 		require.NoError(t, err)
 		require.Equal(t, 2147483647, root.state.GetFlag[int]("int"))
 
-		// Test min int
 		err = Parse(root, []string{"--int", "-2147483648"})
 		require.NoError(t, err)
 		require.Equal(t, -2147483648, root.state.GetFlag[int]("int"))
 
-		// Test that parsing still works with large values (may not overflow in Go flag package)
 		err = Parse(root, []string{"--int", "999999999"})
 		require.NoError(t, err)
 		require.Equal(t, 999999999, root.state.GetFlag[int]("int"))
@@ -1677,10 +1644,8 @@ func TestRun(t *testing.T) {
 	t.Run("location file path is relative", func(t *testing.T) {
 		t.Parallel()
 		loc := location(0)
-		// location returns "funcName file:line"
 		parts := strings.SplitN(loc, " ", 2)
 		require.Len(t, parts, 2, "location should return 'func file:line'")
-		// File path should be relative, not an absolute path
 		require.False(t, strings.HasPrefix(parts[1], "/"), "file path should be relative, not absolute: %s", parts[1])
 	})
 	t.Run("string flags with special characters", func(t *testing.T) {
@@ -1817,7 +1782,6 @@ func TestStateGetFlag(t *testing.T) {
 			require.True(t, ok)
 			assert.ErrorContains(t, err, `flag "-version" not found in command "root" flag set`)
 		}()
-		// Panic because author tried to access a flag that doesn't exist in any of the commands
 		_ = state.GetFlag[string]("version")
 	})
 	t.Run("flag type mismatch", func(t *testing.T) {
@@ -1835,7 +1799,6 @@ func TestStateGetFlag(t *testing.T) {
 			require.True(t, ok)
 			assert.ErrorContains(t, err, `type mismatch for flag "-version" in command "root": registered string, requested int`)
 		}()
-		// Panic because author tried to access a registered flag with the wrong type
 		_ = state.GetFlag[int]("version")
 	})
 }
@@ -2138,7 +2101,7 @@ func TestUsageGeneration(t *testing.T) {
 		t.Parallel()
 
 		var subcommands []*Command
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			subcommands = append(subcommands, &Command{
 				Name:        "cmd" + string(rune('0'+i)),
 				Description: "command number " + string(rune('0'+i)),
@@ -2157,7 +2120,7 @@ func TestUsageGeneration(t *testing.T) {
 
 		output := help(cmd)
 		require.Contains(t, output, "manychildren")
-		for i := 0; i < 10; i++ {
+		for i := range 10 {
 			require.Contains(t, output, "cmd"+string(rune('0'+i)))
 			require.Contains(t, output, "command number "+string(rune('0'+i)))
 		}
@@ -2208,7 +2171,6 @@ func TestUsageGeneration(t *testing.T) {
 		require.Contains(t, output, "root command")
 		require.Contains(t, output, "parent")
 		require.Contains(t, output, "parent command")
-		// Child should not appear in root's usage
 		require.NotContains(t, output, "child")
 		require.NotContains(t, output, "nested child command")
 	})
@@ -2257,7 +2219,6 @@ func TestUsageGeneration(t *testing.T) {
 			Exec: func(ctx context.Context, s *State) error { return nil },
 		}
 
-		// Usage should work even before parsing and show flags
 		output := help(cmd)
 		require.NotEmpty(t, output)
 		require.Contains(t, output, "Flags:")
@@ -2450,7 +2411,6 @@ func TestFlagHelp(t *testing.T) {
 		require.Contains(t, output, "configuration file path")
 		require.Contains(t, output, "number of worker threads")
 
-		// Non-zero defaults are shown
 		require.Contains(t, output, "(default: /etc/config)")
 		require.Contains(t, output, "(default: 4)")
 	})
@@ -2473,15 +2433,12 @@ func TestFlagHelp(t *testing.T) {
 		require.NoError(t, err)
 
 		output := help(cmd)
-		// Zero-value defaults should not appear
 		require.NotContains(t, output, "(default: false)")
 		require.NotContains(t, output, "(default: 0)")
 		require.NotContains(t, output, "(default: )")
-		// But non-bool flags should still have type hints
 		require.Contains(t, output, "-output string")
 		require.Contains(t, output, "-count int")
 		require.Contains(t, output, "-rate float64")
-		// Bool flags should NOT have a type hint
 		require.NotContains(t, output, "-verbose bool")
 	})
 
@@ -2505,9 +2462,7 @@ func TestFlagHelp(t *testing.T) {
 
 		output := help(cmd)
 		require.Contains(t, output, "(required)")
-		// Required flag should not also show a default
 		require.NotContains(t, output, "(default: )")
-		// Non-required flag with non-zero default should show default
 		require.Contains(t, output, "(default: stdout)")
 	})
 
@@ -2535,7 +2490,7 @@ func TestFlagHelp(t *testing.T) {
 		require.Contains(t, output, "(required)")
 
 		inFlags := false
-		for _, line := range strings.Split(output, "\n") {
+		for line := range strings.SplitSeq(output, "\n") {
 			if line == "Flags:" {
 				inFlags = true
 				continue
@@ -2570,10 +2525,8 @@ func TestFlagHelp(t *testing.T) {
 		require.NoError(t, err)
 
 		output := help(cmd)
-		// Flags with short aliases show both forms
 		require.Contains(t, output, "-v, --verbose")
 		require.Contains(t, output, "-o, --output string")
-		// Flags without short aliases are padded to align with double-dash
 		require.Contains(t, output, "    --config string")
 	})
 
@@ -2593,7 +2546,6 @@ func TestFlagHelp(t *testing.T) {
 		require.NoError(t, err)
 
 		output := help(cmd)
-		// Without any short flags, no extra padding should be added
 		require.Contains(t, output, "  --verbose")
 		require.Contains(t, output, "  --config string")
 		require.NotContains(t, output, "     --verbose")

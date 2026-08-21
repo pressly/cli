@@ -134,7 +134,8 @@ func Run(fn func(context.Context) error, opts ...Option) {
 }
 
 // ListenAndServe runs srv until ctx is canceled, then drains it for up to shutdownGrace. The
-// initial cancellation is not propagated to handler contexts.
+// initial cancellation is not propagated to handler contexts. shutdownGrace only bounds HTTP
+// draining; [WithTerminationTimeout] bounds the entire shutdown.
 func ListenAndServe(srv *http.Server, shutdownGrace time.Duration) func(context.Context) error {
 	return func(ctx context.Context) error {
 		var wg sync.WaitGroup
@@ -200,7 +201,14 @@ func WithLogger(logger *slog.Logger) Option {
 	}
 }
 
-// WithRunTimeout cancels the run context after d. A non-positive duration disables the limit.
+// WithRunTimeout cancels the run context after d. It does not force the run function to return; use
+// [WithTerminationTimeout] to bound shutdown. A non-positive duration disables the limit.
+//
+// For a batch job with a hard deadline:
+//
+//	graceful.Run(func(ctx context.Context) error {
+//	    return processBatch(ctx)
+//	}, graceful.WithRunTimeout(1*time.Hour))
 func WithRunTimeout(d time.Duration) Option {
 	return func(c *config) {
 		c.runTimeout = d
@@ -209,6 +217,15 @@ func WithRunTimeout(d time.Duration) Option {
 
 // WithTerminationTimeout exits with status 124 if shutdown takes longer than d. A non-positive
 // duration disables the limit.
+//
+// To bound both a worker's run time and shutdown:
+//
+//	graceful.Run(func(ctx context.Context) error {
+//	    return runWorker(ctx)
+//	},
+//	    graceful.WithRunTimeout(24*time.Hour),
+//	    graceful.WithTerminationTimeout(30*time.Second),
+//	)
 func WithTerminationTimeout(d time.Duration) Option {
 	return func(c *config) {
 		c.shutdownTimeout = d
@@ -216,6 +233,12 @@ func WithTerminationTimeout(d time.Duration) Option {
 }
 
 // WithImmediateTermination exits with status 130 as soon as the run context is canceled.
+//
+// To exit on the first signal:
+//
+//	graceful.Run(func(ctx context.Context) error {
+//	    return runTask(ctx)
+//	}, graceful.WithImmediateTermination())
 func WithImmediateTermination() Option {
 	return func(c *config) {
 		c.immediateTermination = true

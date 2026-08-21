@@ -1,5 +1,24 @@
 // Package cli builds command-line programs on top of the standard library [flag] package. It adds
 // nested subcommands, flags anywhere, inherited flags, generated help, and type-safe flag access.
+//
+//	root := &cli.Command{
+//	    Name: "echo",
+//	    Flags: cli.FlagsFunc(func(f *flag.FlagSet) {
+//	        f.Bool("capitalize", false, "capitalize the input")
+//	    }),
+//	    Exec: func(ctx context.Context, s *cli.State) error {
+//	        text := strings.Join(s.Args, " ")
+//	        if s.GetFlag[bool]("capitalize") {
+//	            text = strings.ToUpper(text)
+//	        }
+//	        fmt.Fprintln(s.Stdout, text)
+//	        return nil
+//	    },
+//	}
+//	if err := cli.ParseAndRun(ctx, root, os.Args[1:], nil); err != nil {
+//	    fmt.Fprintln(os.Stderr, err)
+//	    os.Exit(1)
+//	}
 package cli
 
 import (
@@ -42,14 +61,15 @@ type Command struct {
 	// Summary is empty.
 	Description string
 
-	// Help overrides the generated help for this command.
+	// Help overrides the generated help for --help and [UsageErrorf] errors on this command.
 	Help func(*Command) string
 
 	// Flags holds this command's [flag.FlagSet]. Subcommands inherit these flags unless they are
 	// marked [FlagConfig.Local].
 	Flags *flag.FlagSet
 
-	// FlagConfigs adds behavior to flags already defined in Flags.
+	// FlagConfigs adds behavior to flags already defined in Flags. Each config must name a flag in
+	// Flags.
 	FlagConfigs []FlagConfig
 
 	// SubCommands are the commands available below this command. A command that only groups

@@ -12,7 +12,8 @@ type stringMapValue struct {
 	m map[string]string
 }
 
-// StringMap returns a repeatable [flag.Value] that parses key=value pairs. Values may contain "=".
+// StringMap returns a repeatable [flag.Value] that parses key=value pairs. Values may contain "=";
+// the result is retrieved as map[string]string.
 func StringMap() flag.Value {
 	return &stringMapValue{}
 }

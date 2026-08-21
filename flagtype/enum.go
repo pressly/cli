@@ -12,12 +12,13 @@ type enumValue struct {
 	allowed []string
 }
 
-// Enum returns a [flag.Value] restricted to allowed.
+// Enum returns a [flag.Value] restricted to allowed. Its value is retrieved as a string.
 func Enum(allowed ...string) flag.Value {
 	return &enumValue{allowed: allowed}
 }
 
-// EnumDefault is like [Enum] with a default value. It panics if defaultVal is not allowed.
+// EnumDefault is like [Enum] with a default value, also retrieved as a string. It panics if
+// defaultVal is not allowed.
 func EnumDefault(defaultVal string, allowed []string) flag.Value {
 	if !slices.Contains(allowed, defaultVal) {
 		panic(fmt.Sprintf("flagtype: default value %q is not in allowed values: %s",

@@ -10,7 +10,8 @@ type urlValue struct {
 	u *url.URL
 }
 
-// URL returns a [flag.Value] that requires a URL with a scheme and host.
+// URL returns a [flag.Value] that requires a URL with a scheme and host. Its value is retrieved as
+// *url.URL.
 func URL() flag.Value {
 	return &urlValue{}
 }

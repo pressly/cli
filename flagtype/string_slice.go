@@ -9,7 +9,7 @@ type stringSliceValue struct {
 	vals []string
 }
 
-// StringSlice returns a repeatable [flag.Value] that collects values into a string slice.
+// StringSlice returns a repeatable [flag.Value] retrieved as []string.
 func StringSlice() flag.Value {
 	return &stringSliceValue{}
 }

@@ -1,6 +1,6 @@
 // Package flagtype provides common [flag.Value] implementations for use with [flag.FlagSet.Var].
 //
-// All types implement [flag.Getter] so they work with [cli.GetFlag].
+// All types implement [flag.Getter] so they work with [cli.State.GetFlag].
 //
 // The following types are available:
 //   - [StringSlice] - repeatable flag that collects values into []string
@@ -21,7 +21,7 @@
 //
 // Example retrieval in Exec:
 //
-//	tags   := cli.GetFlag[[]string](s, "tag")
-//	format := cli.GetFlag[string](s, "format")
-//	labels := cli.GetFlag[map[string]string](s, "label")
+//	tags   := s.GetFlag[[]string]("tag")
+//	format := s.GetFlag[string]("format")
+//	labels := s.GetFlag[map[string]string]("label")
 package flagtype

@@ -1,6 +1,6 @@
 module github.com/pressly/cli
 
-go 1.21.0
+go 1.27.0
 
 require github.com/stretchr/testify v1.11.1
 

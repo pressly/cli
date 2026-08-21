@@ -12,7 +12,7 @@ type stringSliceValue struct {
 // StringSlice returns a [flag.Value] that collects values into a string slice. Each time the flag
 // is set, the value is appended. This allows repeatable flags like --tag=foo --tag=bar.
 //
-// Use [cli.GetFlag] with type []string to retrieve the value.
+// Use [cli.State.GetFlag] with type []string to retrieve the value.
 func StringSlice() flag.Value {
 	return &stringSliceValue{}
 }

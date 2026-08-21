@@ -172,7 +172,7 @@ func TestParse(t *testing.T) {
 		cmd := getCommand(t, s.root)
 
 		require.Equal(t, s.add, cmd)
-		require.False(t, GetFlag[bool](s.root.state, "dry-run"))
+		require.False(t, s.root.state.GetFlag[bool]("dry-run"))
 	})
 	t.Run("unknown flag", func(t *testing.T) {
 		t.Parallel()
@@ -191,7 +191,7 @@ func TestParse(t *testing.T) {
 		cmd := getCommand(t, s.root)
 
 		assert.Equal(t, s.add, cmd)
-		assert.True(t, GetFlag[bool](s.root.state, "dry-run"))
+		assert.True(t, s.root.state.GetFlag[bool]("dry-run"))
 	})
 	t.Run("help flag", func(t *testing.T) {
 		t.Parallel()
@@ -242,8 +242,8 @@ func TestParse(t *testing.T) {
 		cmd := getCommand(t, s.root)
 
 		assert.Equal(t, s.add, cmd)
-		assert.True(t, GetFlag[bool](s.root.state, "dry-run"))
-		assert.True(t, GetFlag[bool](s.root.state, "verbose"))
+		assert.True(t, s.root.state.GetFlag[bool]("dry-run"))
+		assert.True(t, s.root.state.GetFlag[bool]("verbose"))
 	})
 	t.Run("nested subcommand and root flag", func(t *testing.T) {
 		t.Parallel()
@@ -254,8 +254,8 @@ func TestParse(t *testing.T) {
 		cmd := getCommand(t, s.root)
 
 		assert.Equal(t, s.sub, cmd)
-		assert.Equal(t, "hello", GetFlag[string](s.root.state, "echo"))
-		assert.True(t, GetFlag[bool](s.root.state, "verbose"))
+		assert.Equal(t, "hello", s.root.state.GetFlag[string]("echo"))
+		assert.True(t, s.root.state.GetFlag[bool]("verbose"))
 	})
 	t.Run("nested subcommand with mixed flags", func(t *testing.T) {
 		t.Parallel()
@@ -266,8 +266,8 @@ func TestParse(t *testing.T) {
 		cmd := getCommand(t, s.root)
 
 		assert.Equal(t, s.sub, cmd)
-		assert.Equal(t, "hello", GetFlag[string](s.root.state, "echo"))
-		assert.True(t, GetFlag[bool](s.root.state, "verbose"))
+		assert.Equal(t, "hello", s.root.state.GetFlag[string]("echo"))
+		assert.True(t, s.root.state.GetFlag[bool]("verbose"))
 	})
 	t.Run("end of options delimiter", func(t *testing.T) {
 		t.Parallel()
@@ -279,7 +279,7 @@ func TestParse(t *testing.T) {
 
 		assert.Equal(t, s.root, cmd)
 		assert.Equal(t, []string{"nested", "sub", "--echo", "hello"}, s.root.state.Args)
-		assert.True(t, GetFlag[bool](s.root.state, "verbose"))
+		assert.True(t, s.root.state.GetFlag[bool]("verbose"))
 	})
 	t.Run("flags and args", func(t *testing.T) {
 		t.Parallel()
@@ -290,7 +290,7 @@ func TestParse(t *testing.T) {
 		cmd := getCommand(t, s.root)
 
 		assert.Equal(t, s.add, cmd)
-		assert.True(t, GetFlag[bool](s.root.state, "dry-run"))
+		assert.True(t, s.root.state.GetFlag[bool]("dry-run"))
 		assert.Equal(t, []string{"item1", "item2"}, s.root.state.Args)
 	})
 	t.Run("nested subcommand with flags and args", func(t *testing.T) {
@@ -302,7 +302,7 @@ func TestParse(t *testing.T) {
 		cmd := getCommand(t, s.root)
 
 		assert.Equal(t, s.sub, cmd)
-		assert.Equal(t, "hello", GetFlag[string](s.root.state, "echo"))
+		assert.Equal(t, "hello", s.root.state.GetFlag[string]("echo"))
 		assert.Equal(t, []string{"world"}, s.root.state.Args)
 	})
 	t.Run("subcommand flags not available in parent", func(t *testing.T) {
@@ -322,7 +322,7 @@ func TestParse(t *testing.T) {
 		cmd := getCommand(t, s.root)
 
 		assert.Equal(t, s.sub, cmd)
-		assert.True(t, GetFlag[bool](s.root.state, "force"))
+		assert.True(t, s.root.state.GetFlag[bool]("force"))
 	})
 	t.Run("unrelated subcommand flags not inherited in other subcommands", func(t *testing.T) {
 		t.Parallel()
@@ -357,7 +357,7 @@ func TestParse(t *testing.T) {
 			cmd := getCommand(t, s.root)
 
 			assert.Equal(t, s.hello, cmd)
-			require.True(t, GetFlag[bool](s.root.state, "mandatory-flag"))
+			require.True(t, s.root.state.GetFlag[bool]("mandatory-flag"))
 		}
 		{
 			// Correct type - false
@@ -366,7 +366,7 @@ func TestParse(t *testing.T) {
 			require.NoError(t, err)
 			cmd := s.root.terminal()
 			assert.Equal(t, s.hello, cmd)
-			require.False(t, GetFlag[bool](s.root.state, "mandatory-flag"))
+			require.False(t, s.root.state.GetFlag[bool]("mandatory-flag"))
 		}
 		{
 			// Incorrect type
@@ -585,7 +585,7 @@ func TestParse(t *testing.T) {
 		}
 		err := Parse(cmd, []string{"--config="})
 		require.NoError(t, err)
-		require.Equal(t, "", GetFlag[string](cmd.state, "config"))
+		require.Equal(t, "", cmd.state.GetFlag[string]("config"))
 	})
 	t.Run("boolean flag with explicit false", func(t *testing.T) {
 		t.Parallel()
@@ -598,7 +598,7 @@ func TestParse(t *testing.T) {
 		}
 		err := Parse(cmd, []string{"--verbose=false"})
 		require.NoError(t, err)
-		require.False(t, GetFlag[bool](cmd.state, "verbose"))
+		require.False(t, cmd.state.GetFlag[bool]("verbose"))
 	})
 	t.Run("deeply nested command hierarchy", func(t *testing.T) {
 		t.Parallel()
@@ -746,7 +746,7 @@ func TestParse(t *testing.T) {
 		err := Parse(root, []string{"parent", "--output", "foo", "child"})
 		require.NoError(t, err, "ancestor flag value should not be treated as unknown command")
 		assert.Equal(t, child, getCommand(t, root))
-		assert.Equal(t, "foo", GetFlag[string](root.state, "output"))
+		assert.Equal(t, "foo", root.state.GetFlag[string]("output"))
 	})
 	t.Run("required flag set to default value", func(t *testing.T) {
 		t.Parallel()
@@ -765,7 +765,7 @@ func TestParse(t *testing.T) {
 		// Explicitly passing the default value should satisfy the required check.
 		err := Parse(root, []string{"--port", "8080"})
 		require.NoError(t, err, "explicitly setting required flag to its default value should not fail")
-		assert.Equal(t, "8080", GetFlag[string](root.state, "port"))
+		assert.Equal(t, "8080", root.state.GetFlag[string]("port"))
 	})
 	t.Run("required bool flag prefix match not too broad", func(t *testing.T) {
 		t.Parallel()
@@ -799,8 +799,8 @@ func TestParse(t *testing.T) {
 		}
 		err := Parse(cmd, []string{"arg1", "--flag1=val1", "arg2", "--flag2", "val2", "arg3"})
 		require.NoError(t, err)
-		require.Equal(t, "val1", GetFlag[string](cmd.state, "flag1"))
-		require.Equal(t, "val2", GetFlag[string](cmd.state, "flag2"))
+		require.Equal(t, "val1", cmd.state.GetFlag[string]("flag1"))
+		require.Equal(t, "val2", cmd.state.GetFlag[string]("flag2"))
 		require.Equal(t, []string{"arg1", "arg2", "arg3"}, cmd.state.Args)
 	})
 }
@@ -824,8 +824,8 @@ func TestShortFlags(t *testing.T) {
 		}
 		err := Parse(cmd, []string{"-v", "-o", "file.txt"})
 		require.NoError(t, err)
-		require.True(t, GetFlag[bool](cmd.state, "verbose"))
-		require.Equal(t, "file.txt", GetFlag[string](cmd.state, "output"))
+		require.True(t, cmd.state.GetFlag[bool]("verbose"))
+		require.Equal(t, "file.txt", cmd.state.GetFlag[string]("output"))
 	})
 
 	t.Run("long flag still works with short alias defined", func(t *testing.T) {
@@ -842,7 +842,7 @@ func TestShortFlags(t *testing.T) {
 		}
 		err := Parse(cmd, []string{"-verbose"})
 		require.NoError(t, err)
-		require.True(t, GetFlag[bool](cmd.state, "verbose"))
+		require.True(t, cmd.state.GetFlag[bool]("verbose"))
 	})
 
 	t.Run("short flag with subcommand", func(t *testing.T) {
@@ -870,8 +870,8 @@ func TestShortFlags(t *testing.T) {
 		}
 		err := Parse(root, []string{"-v", "child", "-n", "hello"})
 		require.NoError(t, err)
-		require.True(t, GetFlag[bool](root.state, "verbose"))
-		require.Equal(t, "hello", GetFlag[string](root.state, "name"))
+		require.True(t, root.state.GetFlag[bool]("verbose"))
+		require.Equal(t, "hello", root.state.GetFlag[string]("name"))
 	})
 
 	t.Run("short and long flags are aliases sharing same value", func(t *testing.T) {
@@ -890,7 +890,7 @@ func TestShortFlags(t *testing.T) {
 		err := Parse(cmd, []string{"-c", "42"})
 		require.NoError(t, err)
 		// Both short and long name should return the same value
-		require.Equal(t, 42, GetFlag[int](cmd.state, "count"))
+		require.Equal(t, 42, cmd.state.GetFlag[int]("count"))
 	})
 
 	t.Run("option references unknown flag", func(t *testing.T) {
@@ -1008,7 +1008,7 @@ func TestLocalFlags(t *testing.T) {
 		}
 		err = Parse(root2, []string{"child", "--verbose"})
 		require.NoError(t, err)
-		assert.True(t, GetFlag[bool](root2.state, "verbose"))
+		assert.True(t, root2.state.GetFlag[bool]("verbose"))
 	})
 
 	t.Run("local flag works on defining command", func(t *testing.T) {
@@ -1025,7 +1025,7 @@ func TestLocalFlags(t *testing.T) {
 		}
 		err := Parse(root, []string{"--version"})
 		require.NoError(t, err)
-		assert.True(t, GetFlag[bool](root.state, "version"))
+		assert.True(t, root.state.GetFlag[bool]("version"))
 	})
 
 	t.Run("local required flag only enforced on defining command", func(t *testing.T) {
@@ -1532,7 +1532,7 @@ func TestRun(t *testing.T) {
 				f.Bool("dry-run", false, "dry run")
 			}),
 			Exec: func(ctx context.Context, s *State) error {
-				if !GetFlag[bool](s, "dry-run") {
+				if !s.GetFlag[bool]("dry-run") {
 					count++
 				}
 				return nil
@@ -1612,7 +1612,7 @@ func TestRun(t *testing.T) {
 			Exec: func(ctx context.Context, s *State) error {
 				// Simulate concurrent access to state
 				go func() {
-					_ = GetFlag[string](s, "value")
+					_ = s.GetFlag[string]("value")
 				}()
 				return nil
 			},
@@ -1662,17 +1662,17 @@ func TestRun(t *testing.T) {
 		// Test max int
 		err := Parse(root, []string{"--int", "2147483647"})
 		require.NoError(t, err)
-		require.Equal(t, 2147483647, GetFlag[int](root.state, "int"))
+		require.Equal(t, 2147483647, root.state.GetFlag[int]("int"))
 
 		// Test min int
 		err = Parse(root, []string{"--int", "-2147483648"})
 		require.NoError(t, err)
-		require.Equal(t, -2147483648, GetFlag[int](root.state, "int"))
+		require.Equal(t, -2147483648, root.state.GetFlag[int]("int"))
 
 		// Test that parsing still works with large values (may not overflow in Go flag package)
 		err = Parse(root, []string{"--int", "999999999"})
 		require.NoError(t, err)
-		require.Equal(t, 999999999, GetFlag[int](root.state, "int"))
+		require.Equal(t, 999999999, root.state.GetFlag[int]("int"))
 	})
 	t.Run("location file path is relative", func(t *testing.T) {
 		t.Parallel()
@@ -1705,7 +1705,7 @@ func TestRun(t *testing.T) {
 		for _, val := range specialValues {
 			err := Parse(root, []string{"--text", val})
 			require.NoError(t, err)
-			require.Equal(t, val, GetFlag[string](root.state, "text"))
+			require.Equal(t, val, root.state.GetFlag[string]("text"))
 		}
 	})
 }
@@ -1788,9 +1788,20 @@ func TestParseAndRun(t *testing.T) {
 	})
 }
 
-func TestGetFlag(t *testing.T) {
+func TestStateGetFlag(t *testing.T) {
 	t.Parallel()
 
+	t.Run("nil state", func(t *testing.T) {
+		defer func() {
+			r := recover()
+			require.NotNil(t, r)
+			err, ok := r.(error)
+			require.True(t, ok)
+			assert.EqualError(t, err, "state is nil")
+		}()
+		var state *State
+		_ = state.GetFlag[string]("version")
+	})
 	t.Run("flag not found", func(t *testing.T) {
 		cmd := &Command{
 			Name:  "root",
@@ -1807,7 +1818,7 @@ func TestGetFlag(t *testing.T) {
 			assert.ErrorContains(t, err, `flag "-version" not found in command "root" flag set`)
 		}()
 		// Panic because author tried to access a flag that doesn't exist in any of the commands
-		_ = GetFlag[string](state, "version")
+		_ = state.GetFlag[string]("version")
 	})
 	t.Run("flag type mismatch", func(t *testing.T) {
 		cmd := &Command{
@@ -1825,7 +1836,7 @@ func TestGetFlag(t *testing.T) {
 			assert.ErrorContains(t, err, `type mismatch for flag "-version" in command "root": registered string, requested int`)
 		}()
 		// Panic because author tried to access a registered flag with the wrong type
-		_ = GetFlag[int](state, "version")
+		_ = state.GetFlag[int]("version")
 	})
 }
 

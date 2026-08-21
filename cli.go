@@ -5,7 +5,7 @@
 //   - Nested subcommands via [Command.SubCommands]
 //   - Flags placed anywhere on the command line
 //   - Parent flags inherited by child commands
-//   - Type-safe flag access via [GetFlag]
+//   - Type-safe flag access via [State.GetFlag]
 //   - Generated help, replaceable per command via [Command.Help]
 //   - "Did you mean" suggestions for misspelled subcommands
 //
@@ -21,7 +21,7 @@
 //	    }),
 //	    Exec: func(ctx context.Context, s *cli.State) error {
 //	        output := strings.Join(s.Args, " ")
-//	        if cli.GetFlag[bool](s, "c") {
+//	        if s.GetFlag[bool]("c") {
 //	            output = strings.ToUpper(output)
 //	        }
 //	        fmt.Fprintln(s.Stdout, output)
@@ -103,7 +103,7 @@ type Command struct {
 	// [flag.NewFlagSet], or use [FlagsFunc] to define flags inline.
 	//
 	// Subcommands inherit these flags unless they are marked [FlagConfig.Local] in
-	// [Command.FlagConfigs]. Read flag values inside [Command.Exec] with [GetFlag].
+	// [Command.FlagConfigs]. Read flag values inside [Command.Exec] with [State.GetFlag].
 	Flags *flag.FlagSet
 
 	// FlagConfigs adds extra behavior to flags already defined in [Command.Flags]. See [FlagConfig]
@@ -221,10 +221,10 @@ func FlagsFunc(fn func(f *flag.FlagSet)) (fset *flag.FlagSet) {
 // defined on the root command can be read from any subcommand. An unknown flag name or a wrong type
 // is a programming error: GetFlag panics, and [Run] catches the panic and returns the error.
 //
-//	verbose := cli.GetFlag[bool](s, "verbose")
-//	count   := cli.GetFlag[int](s, "count")
-//	path    := cli.GetFlag[string](s, "path")
-func GetFlag[T any](s *State, name string) T {
+//	verbose := s.GetFlag[bool]("verbose")
+//	count   := s.GetFlag[int]("count")
+//	path    := s.GetFlag[string]("path")
+func (s *State) GetFlag[T any](name string) T {
 	if s == nil {
 		panic(&internalError{err: errors.New("state is nil")})
 	}

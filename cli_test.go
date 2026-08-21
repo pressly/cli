@@ -1840,6 +1840,20 @@ func TestStateGetFlag(t *testing.T) {
 	})
 }
 
+func TestStateGetFlagTypedName(t *testing.T) {
+	t.Parallel()
+
+	const verbose FlagName[bool] = "verbose"
+	cmd := &Command{
+		Name:  "root",
+		Flags: FlagsFunc(func(f *flag.FlagSet) { f.Bool(string(verbose), false, "verbose output") }),
+		Exec:  func(context.Context, *State) error { return nil },
+	}
+
+	require.NoError(t, Parse(cmd, []string{"--verbose"}))
+	require.True(t, cmd.state.GetFlag(verbose))
+}
+
 func TestStateCommandContext(t *testing.T) {
 	t.Parallel()
 

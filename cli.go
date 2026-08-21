@@ -162,6 +162,16 @@ type FlagConfig struct {
 	Local bool
 }
 
+// FlagName associates a flag's canonical name with its Go type. Pass a FlagName to [State.GetFlag]
+// to infer the returned type instead of specifying it at each lookup.
+//
+//	const verbose FlagName[bool] = "verbose"
+//
+// Define the flag with its string name as usual:
+//
+//	f.Bool(string(verbose), false, "enable verbose output")
+type FlagName[T any] string
+
 // State is the value passed to [Command.Exec]. It holds the parsed inputs the command needs to run.
 type State struct {
 	// Args holds the positional arguments left after the command name and flags are parsed.
@@ -224,10 +234,16 @@ func FlagsFunc(fn func(f *flag.FlagSet)) (fset *flag.FlagSet) {
 //	verbose := s.GetFlag[bool]("verbose")
 //	count   := s.GetFlag[int]("count")
 //	path    := s.GetFlag[string]("path")
-func (s *State) GetFlag[T any](name string) T {
+//
+// Use [FlagName] to define a reusable name and infer the returned type:
+//
+//	const verbose FlagName[bool] = "verbose"
+//	enabled := s.GetFlag(verbose)
+func (s *State) GetFlag[T any](name FlagName[T]) T {
 	if s == nil {
 		panic(&internalError{err: errors.New("state is nil")})
 	}
+	flagName := string(name)
 	// Try to find the flag in each command's flag set, starting from the current command
 	for i := len(s.path) - 1; i >= 0; i-- {
 		cmd := s.path[i]
@@ -235,14 +251,14 @@ func (s *State) GetFlag[T any](name string) T {
 			continue
 		}
 
-		if f := cmd.Flags.Lookup(name); f != nil {
+		if f := cmd.Flags.Lookup(flagName); f != nil {
 			if getter, ok := f.Value.(flag.Getter); ok {
 				value := getter.Get()
 				if v, ok := value.(T); ok {
 					return v
 				}
 				err := fmt.Errorf("type mismatch for flag %q in command %q: registered %T, requested %T",
-					formatFlagName(name),
+					formatFlagName(flagName),
 					getCommandPath(s.path),
 					value,
 					*new(T),
@@ -255,7 +271,7 @@ func (s *State) GetFlag[T any](name string) T {
 
 	// If flag not found anywhere in hierarchy, panic with helpful message
 	err := fmt.Errorf("flag %q not found in command %q flag set",
-		formatFlagName(name),
+		formatFlagName(flagName),
 		getCommandPath(s.path),
 	)
 	panic(&internalError{err: err})

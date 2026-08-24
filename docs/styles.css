@@ -94,7 +94,7 @@ body {
 }
 
 .wrap {
-  max-width: 740px;
+  max-width: 800px;
   margin: 0 auto;
   padding: 0 1.25rem;
 }
@@ -110,7 +110,7 @@ body {
 .content > section > pre,
 .intro > p,
 .intro > pre {
-  max-width: 740px;
+  max-width: 800px;
 }
 
 

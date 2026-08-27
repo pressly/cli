@@ -14,46 +14,38 @@ import (
 //
 // This is a bit unfortunate, but most users nowadays consuming CLI tools expect this behavior.
 func ParseToEnd(f *flag.FlagSet, arguments []string) error {
-	if err := f.Parse(arguments); err != nil {
-		return err
-	}
-	if f.NArg() == 0 {
-		return nil
-	}
+	arguments, trailingArgs := splitAtDelimiter(arguments)
 	var args []string
-	remainingArgs := f.Args()
-	for i := 0; i < len(remainingArgs); i++ {
-		arg := remainingArgs[i]
-		// If the arg looks like a flag, parses like a flag, and quacks like a flag, then it
-		// probably is a flag.
+	parseOnce := true
+	for parseOnce || len(arguments) > 0 {
+		parseOnce = false
+		// If the next argument looks like a flag, parses like a flag, and quacks like a flag,
+		// then it probably is a flag. Let the standard parser make that determination. When it
+		// instead stops at a positional argument, preserve that argument and resume parsing after
+		// it on the next iteration.
 		//
-		// Note, there's an edge cases here which we EXPLICITLY do not handle, and quite honestly
-		// 99.999% of the time you wouldn't build a CLI with this behavior.
-		//
-		// If you want to treat an unknown flag as a positional argument. For example:
+		// There is one edge case here which we EXPLICITLY do not handle, and quite honestly
+		// 99.999% of the time you wouldn't build a CLI with this behavior: treating an unknown flag
+		// as a positional argument. For example:
 		//
 		//	$ ./cmd --valid=true arg1 --unknown-flag=foo arg2
 		//
-		// Right now, this will trigger an error. But *some* users might want that unknown flag to
-		// be treated as a positional argument. It's trivial to add this behavior, by using VisitAll
-		// to iterate over all defined flags (regardless if they are set), and then checking if the
-		// flag is in the map of known flags.
-		if len(arg) > 1 && arg[0] == '-' {
-			// If we encounter a "--", treat all subsequent arguments as positional. The "--" itself
-			// is stripped, consistent with the standard library's behavior.
-			if arg == "--" {
-				args = append(args, remainingArgs[i+1:]...)
-				break
-			}
-			if err := f.Parse(remainingArgs[i:]); err != nil {
-				return err
-			}
-			remainingArgs = f.Args()
-			i = -1 // Reset to handle newly parsed arguments.
-			continue
+		// This triggers an error. Some users might want the unknown flag to be treated as a
+		// positional argument instead. That behavior could be added by using VisitAll to collect
+		// the defined flags before deciding whether to pass a flag-looking argument to Parse.
+		if err := f.Parse(arguments); err != nil {
+			return err
 		}
-		args = append(args, arg)
+
+		arguments = f.Args()
+		if len(arguments) == 0 {
+			break
+		}
+
+		args = append(args, arguments[0])
+		arguments = arguments[1:]
 	}
+	args = append(args, trailingArgs...)
 	if len(args) > 0 {
 		// Use "--" as a sentinel to set the FlagSet's internal args field without unsafe
 		// reflection. When flag.Parse encounters "--" it stops processing and stores the remaining
@@ -61,4 +53,13 @@ func ParseToEnd(f *flag.FlagSet, arguments []string) error {
 		return f.Parse(append([]string{"--"}, args...))
 	}
 	return nil
+}
+
+func splitAtDelimiter(arguments []string) (before, after []string) {
+	for i, arg := range arguments {
+		if arg == "--" {
+			return arguments[:i], arguments[i+1:]
+		}
+	}
+	return arguments, nil
 }

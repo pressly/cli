@@ -15,6 +15,13 @@ func TestParseToEnd(t *testing.T) {
 		require.NoError(t, ParseToEnd(fs, []string{}))
 		require.False(t, *debugP)
 		require.Equal(t, 0, fs.NFlag())
+		require.True(t, fs.Parsed())
+	})
+	t.Run("only double dash terminator", func(t *testing.T) {
+		fs := flag.NewFlagSet("name", flag.ContinueOnError)
+		require.NoError(t, ParseToEnd(fs, []string{"--"}))
+		require.Empty(t, fs.Args())
+		require.True(t, fs.Parsed())
 	})
 	t.Run("no args", func(t *testing.T) {
 		fs := flag.NewFlagSet("name", flag.ContinueOnError)
@@ -115,6 +122,11 @@ func TestParseToEnd(t *testing.T) {
 		require.Error(t, err)
 		require.Equal(t, err.Error(), "flag provided but not defined: -some-unknown-flag")
 	})
+	t.Run("missing flag value after positional argument", func(t *testing.T) {
+		fs, _ := newFlagset()
+		err := ParseToEnd(fs, []string{"arg1", "--flag1"})
+		require.EqualError(t, err, "flag needs an argument: -flag1")
+	})
 	t.Run("only positional args", func(t *testing.T) {
 		fs, c := newFlagset()
 		err := ParseToEnd(fs, []string{"arg1", "arg2", "arg3"})
@@ -152,6 +164,14 @@ func TestParseToEnd(t *testing.T) {
 		require.Equal(t, "value2", c.flag2)
 		require.Equal(t, []string{"arg1", "arg2", "arg3"}, fs.Args())
 	})
+	t.Run("flag-looking value after positional argument", func(t *testing.T) {
+		fs, c := newFlagset()
+		err := ParseToEnd(fs, []string{"arg1", "--flag1", "--flag3", "arg2"})
+		require.NoError(t, err)
+		require.Equal(t, "--flag3", c.flag1)
+		require.False(t, c.flag3)
+		require.Equal(t, []string{"arg1", "arg2"}, fs.Args())
+	})
 	t.Run("standalone dash is positional", func(t *testing.T) {
 		fs, c := newFlagset()
 		args := []string{"--flag1=value1", "-", "arg1"}
@@ -162,15 +182,32 @@ func TestParseToEnd(t *testing.T) {
 	})
 	t.Run("flags after double dash terminator", func(t *testing.T) {
 		fs, c := newFlagset()
-		// The initial f.Parse consumes --flag1 and stops at "--", leaving ["--flag3"] as remaining
-		// args (the "--" is stripped by std lib). The loop then parses --flag3 as a flag,
-		// collecting zero positional args.
 		args := []string{"--flag1=value1", "--", "--flag3"}
 		err := ParseToEnd(fs, args)
 		require.NoError(t, err)
 		require.Equal(t, "value1", c.flag1)
-		require.True(t, c.flag3)
-		require.Equal(t, 0, fs.NArg())
+		require.False(t, c.flag3)
+		require.Equal(t, []string{"--flag3"}, fs.Args())
+	})
+	t.Run("double dash terminator before flags", func(t *testing.T) {
+		fs, c := newFlagset()
+		err := ParseToEnd(fs, []string{"--", "--flag3"})
+		require.NoError(t, err)
+		require.False(t, c.flag3)
+		require.Equal(t, []string{"--flag3"}, fs.Args())
+	})
+	t.Run("unknown flag after double dash terminator", func(t *testing.T) {
+		fs, _ := newFlagset()
+		err := ParseToEnd(fs, []string{"arg1", "--", "--unknown", "arg2"})
+		require.NoError(t, err)
+		require.Equal(t, []string{"arg1", "--unknown", "arg2"}, fs.Args())
+	})
+	t.Run("second double dash is positional", func(t *testing.T) {
+		fs, c := newFlagset()
+		err := ParseToEnd(fs, []string{"--", "--", "--flag3"})
+		require.NoError(t, err)
+		require.False(t, c.flag3)
+		require.Equal(t, []string{"--", "--flag3"}, fs.Args())
 	})
 	t.Run("duplicate flags last wins", func(t *testing.T) {
 		fs, c := newFlagset()

@@ -279,19 +279,36 @@ func Run(ctx context.Context, root *Command, options *RunOptions) error {
 //	}
 func ParseAndRun(ctx context.Context, root *Command, args []string, options *RunOptions) error {
 	if err := Parse(root, args); err != nil {
-		if errors.Is(err, flag.ErrHelp) {
-			options = checkAndSetRunOptions(options)
-			_, _ = fmt.Fprintln(options.Stdout, help(root))
-			return nil
-		}
-		if usageErr, ok := errors.AsType[*usageError](err); ok {
-			options = checkAndSetRunOptions(options)
-			_, _ = fmt.Fprintf(options.Stderr, "%s\n\n", help(root))
-			return usageErr.Unwrap()
-		}
-		return err
+		return HandleErrHelp(err, root, options)
 	}
 	return Run(ctx, root, options)
+}
+
+// HandleErrHelp handles ErrHelp/usageError by printing the help.
+//
+// If the has been handled like that, then it returns nil.
+// For other errors, err is returned.
+func HandleErrHelp(err error, root *Command, options *RunOptions) error {
+	if errors.Is(err, flag.ErrHelp) {
+		options = checkAndSetRunOptions(options)
+		PrintHelp(options.Stdout, root)
+		return nil
+	}
+	if usageErr, ok := errors.AsType[*usageError](err); ok {
+		options = checkAndSetRunOptions(options)
+		PrintHelp(options.Stderr, root)
+		_, _ = options.Stderr.Write([]byte{'\n'})
+		return usageErr.Unwrap()
+	}
+	return err
+}
+
+// PrintHelp prints the help message to the given writer (os.Stderr if nil).
+func PrintHelp(w io.Writer, root *Command) {
+	if w == nil {
+		w = os.Stderr
+	}
+	_, _ = fmt.Fprintln(w, help(root))
 }
 
 // UsageErrorf returns an error for invalid command arguments or flag combinations. [Run] prints the
